@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Casa Bulbo AR Experience</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsartoolkit5/artoolkit.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r17/Stats.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #ARCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .ui-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+        }
+        
+        .ui-controls {
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            pointer-events: auto;
+        }
+        
+        .ui-button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+        }
+        
+        .ui-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 1000;
+        }
+        
+        .loading-spinner {
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 5px solid #fff;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .start-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 16px 32px;
+            background-color: #FF5722;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 100;
+            display: none;
+        }
+        
+        .info-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            max-width: 250px;
+            z-index: 50;
+        }
+        
+        .no-support {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            z-index: 2000;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="ARCanvas"></canvas>
+        
+        <div class="loading-screen">
+            <div class="loading-spinner"></div>
+            <p>Cargando experiencia AR...</p>
+        </div>
+        
+        <button class="start-button">INICIAR EXPERIENCIA AR</button>
+        
+        <div class="ui-overlay">
+            <div class="ui-controls">
+                <button class="ui-button" id="zoomIn">+</button>
+                <button class="ui-button" id="zoomOut">-</button>
+                <button class="ui-button" id="rotate">↻</button>
+                <button class="ui-button" id="info">i</button>
+            </div>
+        </div>
+        
+        <div class="info-overlay" style="display: none;">
+            <h3>Casa Bulbo AR</h3>
+            <p>Apunta tu cámara hacia los marcadores para visualizar las esculturas digitales. Cada perspectiva revela una visión única de la obra.</p>
+        </div>
+    </div>
+
+    <script>
+        // Verificar soporte para WebXR
+        if (!navigator.xr || !navigator.xr.isSessionSupported) {
+            document.body.innerHTML = `
+                <div class="no-support">
+                    <h2>WebXR no compatible</h2>
+                    <p>Tu navegador no soporta experiencias de Realidad Aumentada.</p>
+                    <p>Por favor, intenta con Chrome o Safari en un dispositivo móvil reciente.</p>
+                </div>
+            `;
+        }
+
+        // Variables globales
+        let camera, scene, renderer;
+        let controller, reticle;
+        let hitTestSource = null;
+        let hitTestSourceRequested = false;
+        let sculptureModels = [];
+        let loadingManager;
+        let stats;
+        let isARSessionActive = false;
+
+        // Posiciones y rotaciones de las 4 esculturas
+        const sculptureConfigurations = [
+            { position: new THREE.Vector3(0, 0, -0.5), rotation: new THREE.Euler(0, 0, 0) },
+            { position: new THREE.Vector3(0.5, 0, 0), rotation: new THREE.Euler(0, Math.PI/2, 0) },
+            { position: new THREE.Vector3(0, 0, 0.5), rotation: new THREE.Euler(0, Math.PI, 0) },
+            { position: new THREE.Vector3(-0.5, 0, 0), rotation: new THREE.Euler(0, -Math.PI/2, 0) }
+        ];
+
+        // Iniciar la aplicación cuando esté todo listo
+        window.addEventListener('load', init);
+
+        function init() {
+            const container = document.getElementById('container');
+            const canvas = document.getElementById('ARCanvas');
+            
+            stats = new Stats();
+            stats.dom.style.position = 'absolute';
+            stats.dom.style.top = '0px';
+            container.appendChild(stats.dom);
+
+            // Configurar gestor de carga
+            loadingManager = new THREE.LoadingManager();
+            loadingManager.onProgress = function(url, loaded, total) {
+                console.log(`Cargando: ${url} - ${Math.round(loaded / total * 100)}%`);
+            };
+            
+            loadingManager.onLoad = function() {
+                console.log('Carga completa');
+                document.querySelector('.loading-screen').style.display = 'none';
+                document.querySelector('.start-button').style.display = 'block';
+            };
+            
+            loadingManager.onError = function(url) {
+                console.error('Error cargando: ' + url);
+            };
+            
+            // Configurar escena
+            scene = new THREE.Scene();
+            
+            // Configurar cámara
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+            
+            // Configurar iluminación
+            setupLighting();
+            
+            // Cargar modelos 3D
+            loadModels();
+            
+            // Configurar el renderizador
+            renderer = new THREE.WebGLRenderer({
+                canvas: canvas,
+                antialias: true,
+                alpha: true
+            });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            
+            // Configurar el controlador
+            controller = renderer.xr.getController(0);
+            controller.addEventListener('select', onSelect);
+            scene.add(controller);
+            
+            // Crear retícula para posicionamiento
+            reticle = new THREE.Mesh(
+                new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
+                new THREE.MeshBasicMaterial()
+            );
+            reticle.matrixAutoUpdate = false;
+            reticle.visible = false;
+            scene.add(reticle);
+            
+            // Botón de inicio de sesión AR
+            document.querySelector('.start-button').addEventListener('click', startARSession);
+            
+            // Configurar eventos UI
+            document.getElementById('zoomIn').addEventListener('click', () => zoomSculptures(1.1));
+            document.getElementById('zoomOut').addEventListener('click', () => zoomSculptures(0.9));
+            document.getElementById('rotate').addEventListener('click', rotateSculptures);
+            document.getElementById('info').addEventListener('click', toggleInfoOverlay);
+            
+            // Configurar redimensionamiento
+            window.addEventListener('resize', onWindowResize);
+            
+            // Iniciar el bucle de renderizado
+            renderer.setAnimationLoop(render);
+        }
+
+        // Configurar iluminación
+        function setupLighting() {
+            // Iluminación ambiental suave
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            scene.add(ambientLight);
+            
+            // Iluminación direccional principal (luz cálida)
+            const mainLight = new THREE.DirectionalLight(0xffaa55, 1.5);
+            mainLight.position.set(5, 10, 7);
+            mainLight.castShadow = true;
+            scene.add(mainLight);
+            
+            // Luz de relleno con tono cálido más suave
+            const fillLight = new THREE.DirectionalLight(0xffd6aa, 0.7);
+            fillLight.position.set(-5, 3, -5);
+            scene.add(fillLight);
+            
+            // Luz de contorno para definir mejor los bordes
+            const rimLight = new THREE.DirectionalLight(0xffffff, 0.4);
+            rimLight.position.set(0, -10, 0);
+            scene.add(rimLight);
+        }
+
+        // Cargar modelos 3D
+        function loadModels() {
+            // Simulación de carga de modelo (en una aplicación real usarías GLTFLoader)
+            setTimeout(() => {
+                // Para cada configuración, crear una escultura
+                for (let i = 0; i < sculptureConfigurations.length; i++) {
+                    const model = createDummySculpture();
+                    
+                    // Configurar posición y rotación según la configuración
+                    const config = sculptureConfigurations[i];
+                    model.position.copy(config.position);
+                    model.rotation.copy(config.rotation);
+                    
+                    // Ocultar inicialmente
+                    model.visible = false;
+                    
+                    // Agregar a la escena y al array
+                    scene.add(model);
+                    sculptureModels.push(model);
+                }
+                
+                // Activar botón de inicio
+                document.querySelector('.loading-screen').style.display = 'none';
+                document.querySelector('.start-button').style.display = 'block';
+                
+            }, 2000); // Simular tiempo de carga
+        }
+
+        // Crear una escultura de prueba
+        function createDummySculpture() {
+            const group = new THREE.Group();
+            
+            // Base
+            const baseGeometry = new THREE.CylinderGeometry(0.1, 0.12, 0.02, 32);
+            const baseMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x333333, 
+                metalness: 0.8,
+                roughness: 0.2
+            });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            base.position.y = 0.01;
+            group.add(base);
+            
+            // Escultura principal (forma abstracta)
+            const mainGeometry = new THREE.TorusKnotGeometry(0.08, 0.03, 100, 16);
+            const mainMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xCDAD7E, 
+                metalness: 0.6,
+                roughness: 0.3,
+                envMap: new THREE.CubeTextureLoader().load(['px.jpg', 'nx.jpg', 'py.jpg', 'ny.jpg', 'pz.jpg', 'nz.jpg'])
+            });
+            
+            const mainSculpture = new THREE.Mesh(mainGeometry, mainMaterial);
+            mainSculpture.position.y = 0.1;
+            group.add(mainSculpture);
+            
+            // Elementos decorativos
+            const sphere1 = new THREE.Mesh(
+                new THREE.SphereGeometry(0.02, 16, 16),
+                new THREE.MeshStandardMaterial({ color: 0xB87333, metalness: 0.9, roughness: 0.1 })
+            );
+            sphere1.position.set(0.05, 0.17, 0.05);
+            group.add(sphere1);
+            
+            const sphere2 = new THREE.Mesh(
+                new THREE.SphereGeometry(0.015, 16, 16),
+                new THREE.MeshStandardMaterial({ color: 0xE6BE8A, metalness: 0.7, roughness: 0.2 })
+            );
+            sphere2.position.set(-0.06, 0.13, 0.03);
+            group.add(sphere2);
+            
+            // Escalar todo el grupo
+            group.scale.set(0.5, 0.5, 0.5);
+            
+            return group;
+        }
+
+        // Iniciar sesión AR
+        async function startARSession() {
+            try {
+                if (!navigator.xr) {
+                    throw new Error('WebXR no soportado');
+                }
+                
+                const sessionSupported = await navigator.xr.isSessionSupported('immersive-ar');
+                if (!sessionSupported) {
+                    throw new Error('AR no soportado en este dispositivo');
+                }
+                
+                const session = await navigator.xr.requestSession('immersive-ar', {
+                    requiredFeatures: ['hit-test'],
+                    optionalFeatures: ['dom-overlay'],
+                    domOverlay: { root: document.getElementById('container') }
+                });
+                
+                session.addEventListener('end', () => {
+                    isARSessionActive = false;
+                    hitTestSourceRequested = false;
+                    hitTestSource = null;
+                    
+                    // Ocultar esculturas
+                    sculptureModels.forEach(model => {
+                        model.visible = false;
+                    });
+                    
+                    // Mostrar botón de inicio
+                    document.querySelector('.start-button').style.display = 'block';
+                });
+                
+                renderer.xr.setReferenceSpaceType('local');
+                renderer.xr.setSession(session);
+                
+                document.querySelector('.start-button').style.display = 'none';
+                isARSessionActive = true;
+                
+            } catch (error) {
+                console.error('Error iniciando sesión AR:', error);
+                alert(`No se pudo iniciar AR: ${error.message}`);
+            }
+        }
+
+        // Manejar eventos de selección
+        function onSelect() {
+            if (reticle.visible) {
+                // Colocar esculturas alrededor del punto seleccionado
+                const center = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
+                
+                sculptureModels.forEach((model, index) => {
+                    const config = sculptureConfigurations[index];
+                    
+                    // Calcular posición basada en el centro y la configuración
+                    const position = new THREE.Vector3()
+                        .copy(config.position)
+                        .add(center);
+                    
+                    // Aplicar posición y rotación
+                    model.position.copy(position);
+                    model.rotation.copy(config.rotation);
+                    model.visible = true;
+                });
+                
+                // Ocultar retícula después de colocar
+                reticle.visible = false;
+            }
+        }
+
+        // Redimensionar ventana
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Bucle de renderizado
+        function render(timestamp, frame) {
+            stats.begin();
+            
+            if (frame && isARSessionActive) {
+                const referenceSpace = renderer.xr.getReferenceSpace();
+                const session = renderer.xr.getSession();
+                
+                if (!hitTestSourceRequested) {
+                    session.requestReferenceSpace('viewer').then((referenceSpace) => {
+                        session.requestHitTestSource({ space: referenceSpace })
+                            .then((source) => {
+                                hitTestSource = source;
+                            });
+                    });
+                    
+                    hitTestSourceRequested = true;
+                }
+                
+                if (hitTestSource) {
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+                    
+                    if (hitTestResults.length > 0) {
+                        const hit = hitTestResults[0];
+                        const pose = hit.getPose(referenceSpace);
+                        
+                        reticle.visible = true;
+                        reticle.matrix.fromArray(pose.transform.matrix);
+                    } else {
+                        reticle.visible = false;
+                    }
+                }
+                
+                // Animación de las esculturas
+                animateSculptures(timestamp);
+            }
+            
+            renderer.render(scene, camera);
+            stats.end();
+        }
+
+        // Animar esculturas
+        function animateSculptures(timestamp) {
+            const time = timestamp / 1000; // Convertir a segundos
+            
+            sculptureModels.forEach((model, index) => {
+                if (model.visible) {
+                    // Aplicar una rotación lenta continua a la escultura principal
+                    const sculptureMain = model.children[1]; // La escultura principal es el segundo hijo
+                    
+                    // Rotación sutil diferente para cada instancia
+                    sculptureMain.rotation.y = Math.sin(time * 0.2 + index * 0.5) * 0.1 + index * Math.PI/2;
+                    sculptureMain.rotation.z = Math.cos(time * 0.15 + index * 0.7) * 0.05;
+                    
+                    // Ligero movimiento flotante
+                    model.position.y = Math.sin(time * 0.5 + index) * 0.01 + 0.05;
+                }
+            });
+        }
+
+        // Zoom en las esculturas
+        function zoomSculptures(factor) {
+            sculptureModels.forEach(model => {
+                if (model.visible) {
+                    // Ajustar escala con límites
+                    const newScale = model.scale.x * factor;
+                    if (newScale >= 0.2 && newScale <= 1.5) {
+                        model.scale.set(newScale, newScale, newScale);
+                    }
+                }
+            });
+        }
+
+        // Rotar todas las esculturas
+        function rotateSculptures() {
+            sculptureModels.forEach(model => {
+                if (model.visible) {
+                    model.rotation.y += Math.PI / 4;
+                }
+            });
+        }
+
+        // Mostrar/ocultar información
+        function toggleInfoOverlay() {
+            const infoOverlay = document.querySelector('.info-overlay');
+            infoOverlay.style.display = infoOverlay.style.display === 'none' ? 'block' : 'none';
+        }
+    </script>
+</body>
+</html>
