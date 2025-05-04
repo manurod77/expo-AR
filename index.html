@@ -2,6 +2,1156 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Casa Bulbo - Experiencia AR</title>
+    <style>
+        :root {
+            --primary-color: #ff6b00;
+            --secondary-color: #304ffe;
+            --dark-color: #232323;
+            --light-color: #f5f5f5;
+            --success-color: #4CAF50;
+            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: var(--font-main);
+            color: var(--dark-color);
+            background-color: #000;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* Pantalla inicial y de carga */
+        #splashscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--dark-color);
+            color: var(--light-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease-in-out;
+            padding: 5vh 5vw;
+        }
+        
+        .splash-header {
+            text-align: center;
+            margin-top: 10vh;
+        }
+        
+        .splash-header h1 {
+            font-size: 8vw;
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .splash-header h2 {
+            font-size: 5vw;
+            font-weight: 300;
+            margin: 2vh 0;
+        }
+        
+        .splash-content {
+            text-align: center;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-width: 90%;
+        }
+        
+        .splash-content p {
+            margin: 2vh 0;
+            font-size: 4.5vw;
+            line-height: 1.4;
+        }
+        
+        .splash-footer {
+            width: 100%;
+            margin-bottom: 10vh;
+        }
+        
+        #start-button {
+            width: 100%;
+            padding: 3vh 0;
+            border: none;
+            border-radius: 12px;
+            background-color: var(--primary-color);
+            color: white;
+            font-size: 5vw;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #start-button:active {
+            transform: scale(0.98);
+        }
+        
+        #loading-indicator {
+            width: 100%;
+            height: 6px;
+            background-color: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 2vh 0;
+        }
+        
+        #loading-progress {
+            height: 100%;
+            width: 0%;
+            background-color: var(--primary-color);
+            transition: width 0.3s ease-out;
+        }
+        
+        #loading-text {
+            text-align: center;
+            font-size: 3.5vw;
+            color: rgba(255,255,255,0.7);
+            margin-top: 1vh;
+        }
+        
+        /* Interfaz AR */
+        #ar-interface {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+        }
+        
+        /* Paneles informativos */
+        .info-card {
+            position: absolute;
+            background-color: rgba(255,255,255,0.95);
+            border-radius: 12px;
+            padding: 15px;
+            width: 70vw;
+            max-width: 300px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: auto;
+            z-index: 50;
+            display: none;
+        }
+        
+        .info-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 4.5vw;
+            color: var(--primary-color);
+        }
+        
+        .info-card p {
+            margin: 0;
+            font-size: 3.5vw;
+            line-height: 1.4;
+        }
+        
+        /* Indicador de posicionamiento */
+        #positioning-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            background-color: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 3.5vw;
+            z-index: 20;
+            pointer-events: none;
+            display: none;
+        }
+        
+        /* Controles de la experiencia */
+        #control-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(255,255,255,0.95);
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+            transform: translateY(100%);
+            transition: transform 0.4s ease-out;
+            pointer-events: auto;
+            z-index: 150;
+        }
+        
+        #control-panel.visible {
+            transform: translateY(0);
+        }
+        
+        .panel-handle {
+            width: 50px;
+            height: 5px;
+            background-color: #ddd;
+            border-radius: 3px;
+            margin: 10px auto;
+        }
+        
+        .control-buttons {
+            display: flex;
+            justify-content: space-around;
+            padding: 5px 0 25px 0;
+        }
+        
+        .control-button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: none;
+            border: none;
+            padding: 10px;
+            font-size: 3.5vw;
+            color: var(--dark-color);
+            cursor: pointer;
+        }
+        
+        .button-icon {
+            width: 40px;
+            height: 40px;
+            background-color: rgba(0,0,0,0.05);
+            border-radius: 50%;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+        }
+        
+        /* Panel de información completa */
+        #info-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            z-index: 200;
+            transform: translateY(100%);
+            transition: transform 0.5s ease-out;
+            overflow-y: auto;
+            pointer-events: auto;
+        }
+        
+        #info-panel.visible {
+            transform: translateY(0);
+        }
+        
+        .panel-header {
+            position: sticky;
+            top: 0;
+            padding: 15px;
+            background-color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        
+        .panel-title {
+            font-size: 5vw;
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .close-button {
+            background: none;
+            border: none;
+            width: 40px;
+            height: 40px;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--dark-color);
+        }
+        
+        .panel-content {
+            padding: 20px;
+        }
+        
+        .panel-content h2 {
+            font-size: 5vw;
+            margin: 20px 0 10px 0;
+        }
+        
+        .panel-content p {
+            font-size: 4vw;
+            line-height: 1.5;
+            margin: 10px 0;
+        }
+        
+        .panel-content img {
+            width: 100%;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        /* Mensaje de estado */
+        #status-message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(35, 35, 35, 0.9);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-size: 3.5vw;
+            text-align: center;
+            z-index: 100;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s forwards;
+        }
+        
+        .fade-out {
+            animation: fadeOut 0.5s forwards;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Tutorial de instrucciones */
+        #tutorial {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            z-index: 300;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+        
+        #tutorial.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .tutorial-slide {
+            background-color: white;
+            width: 90%;
+            max-width: 400px;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            display: none;
+        }
+        
+        .tutorial-slide.active {
+            display: block;
+        }
+        
+        .tutorial-image {
+            width: 100%;
+            height: 40vh;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            color: #999;
+        }
+        
+        .tutorial-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        
+        .tutorial-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            background-color: var(--primary-color);
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        
+        .tutorial-button.secondary {
+            background-color: #ddd;
+            color: #333;
+        }
+        
+        /* Responsive */
+        @media (min-width: 768px) {
+            .splash-header h1 { font-size: 36px; }
+            .splash-header h2 { font-size: 24px; }
+            .splash-content p { font-size: 18px; }
+            #start-button { font-size: 20px; max-width: 300px; margin: 0 auto; }
+            .info-card h3 { font-size: 18px; }
+            .info-card p { font-size: 14px; }
+            #positioning-indicator { font-size: 14px; }
+            .control-button { font-size: 14px; }
+            .panel-title { font-size: 22px; }
+            .panel-content h2 { font-size: 20px; }
+            .panel-content p { font-size: 16px; }
+            #status-message { font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Pantalla de inicio -->
+    <div id="splashscreen">
+        <div class="splash-header">
+            <h1>Casa Bulbo</h1>
+            <h2>Experiencia AR</h2>
+        </div>
+        
+        <div class="splash-content">
+            <p>Explora esculturas digitales en realidad aumentada que interactúan con el espacio físico de Casa Bulbo.</p>
+            <div id="loading-indicator">
+                <div id="loading-progress"></div>
+            </div>
+            <div id="loading-text">Cargando recursos...</div>
+        </div>
+        
+        <div class="splash-footer">
+            <button id="start-button" disabled>
+                <span id="start-icon">⟳</span>
+                <span>Iniciando...</span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Interfaz AR -->
+    <div id="ar-interface">
+        <!-- Indicador de posicionamiento -->
+        <div id="positioning-indicator">Mueve tu dispositivo para detectar superficies</div>
+        
+        <!-- Tarjetas de información para cada escultura -->
+        <div class="info-card" id="sculpture-1" style="top: 30%; left: 50%;">
+            <h3>Escultura 1</h3>
+            <p>Representa la interacción entre formas pixeladas y orgánicas, explorando la tensión entre lo digital y natural.</p>
+        </div>
+        
+        <div class="info-card" id="sculpture-2" style="top: 50%; left: 70%;">
+            <h3>Escultura 2</h3>
+            <p>Una interpretación tridimensional de patrones de datos transformados en forma física, conectando información y materia.</p>
+        </div>
+        
+        <div class="info-card" id="sculpture-3" style="top: 70%; left: 50%;">
+            <h3>Escultura 3</h3>
+            <p>Esta pieza examina la fragmentación y reconstrucción de la identidad en la era digital mediante geometrías pixeladas.</p>
+        </div>
+        
+        <div class="info-card" id="sculpture-4" style="top: 50%; left: 30%;">
+            <h3>Escultura 4</h3>
+            <p>Un homenaje a la estética de los primeros videojuegos, traduciendo su lenguaje visual a un contexto espacial contemporáneo.</p>
+        </div>
+        
+        <!-- Panel de control -->
+        <div id="control-panel">
+            <div class="panel-handle"></div>
+            <div class="control-buttons">
+                <button class="control-button" id="help-button">
+                    <div class="button-icon">?</div>
+                    <span>Ayuda</span>
+                </button>
+                <button class="control-button" id="info-button">
+                    <div class="button-icon">i</div>
+                    <span>Info</span>
+                </button>
+                <button class="control-button" id="light-button">
+                    <div class="button-icon">💡</div>
+                    <span>Luz</span>
+                </button>
+                <button class="control-button" id="reset-button">
+                    <div class="button-icon">↻</div>
+                    <span>Reset</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Mensaje de estado -->
+        <div id="status-message"></div>
+    </div>
+    
+    <!-- Panel de información completa -->
+    <div id="info-panel">
+        <div class="panel-header">
+            <h2 class="panel-title">Sobre la exposición</h2>
+            <button class="close-button" id="close-info-panel">×</button>
+        </div>
+        <div class="panel-content">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" alt="Plano de Casa Bulbo">
+            
+            <h2>Concepto</h2>
+            <p>Esta instalación de realidad aumentada presenta esculturas digitales inspiradas en la estética del pixel art, explorando la relación entre lo digital y lo físico.</p>
+            
+            <h2>Disposición</h2>
+            <p>Las esculturas están dispuestas en un círculo alrededor del marcador central, cada una orientada hacia el exterior como se muestra en el plano de la exposición. Esta disposición invita al espectador a recorrer el espacio y experimentar las piezas desde diferentes ángulos.</p>
+            
+            <h2>Elementos visuales</h2>
+            <p>El marcador visual representa una cara pixelada rodeada por patrones geométricos coloridos, simbolizando la dualidad entre la expresión humana y la abstracción digital.</p>
+            
+            <h2>Iluminación</h2>
+            <p>La iluminación virtual ha sido diseñada específicamente para resaltar los volúmenes y texturas de las esculturas digitales, complementando la iluminación física del espacio en Casa Bulbo, Barranco.</p>
+            
+            <h2>Interacción</h2>
+            <p>Se invita a los visitantes a moverse alrededor de las piezas, observando cómo cambian según el ángulo y la distancia, creando una experiencia inmersiva que fusiona el entorno real con elementos digitales.</p>
+        </div>
+    </div>
+    
+    <!-- Tutorial -->
+    <div id="tutorial">
+        <div class="tutorial-slide active" id="slide-1">
+            <h2>Bienvenido/a</h2>
+            <p>Esta experiencia te permite ver esculturas digitales en realidad aumentada.</p>
+            <div class="tutorial-image">Ilustración: Dispositivo escaneando el entorno</div>
+            <p>Primero necesitarás permitir acceso a la cámara de tu dispositivo.</p>
+            <div class="tutorial-buttons">
+                <button class="tutorial-button secondary" id="skip-tutorial">Omitir</button>
+                <button class="tutorial-button" id="next-slide-1">Siguiente</button>
+            </div>
+        </div>
+        
+        <div class="tutorial-slide" id="slide-2">
+            <h2>Encuentra el marcador</h2>
+            <p>Busca la imagen cuadriculada en Casa Bulbo y apunta tu cámara hacia ella.</p>
+            <div class="tutorial-image">Ilustración: Apuntando al marcador</div>
+            <p>Cuando el marcador sea detectado, las esculturas aparecerán a su alrededor.</p>
+            <div class="tutorial-buttons">
+                <button class="tutorial-button secondary" id="prev-slide-2">Anterior</button>
+                <button class="tutorial-button" id="next-slide-2">Siguiente</button>
+            </div>
+        </div>
+        
+        <div class="tutorial-slide" id="slide-3">
+            <h2>Explora las esculturas</h2>
+            <p>Muévete alrededor del marcador para ver todas las esculturas desde diferentes ángulos.</p>
+            <div class="tutorial-image">Ilustración: Persona moviéndose alrededor</div>
+            <p>Toca una escultura para ver más información sobre ella.</p>
+            <div class="tutorial-buttons">
+                <button class="tutorial-button secondary" id="prev-slide-3">Anterior</button>
+                <button class="tutorial-button" id="start-experience">¡Comenzar!</button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
+        import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/ARButton.js';
+        
+        // Variables globales
+        let container;
+        let camera, scene, renderer;
+        let controller;
+        let reticle;
+        let hitTestSource = null;
+        let hitTestSourceRequested = false;
+        let sculptureModels = [];
+        let sculptureInstances = [];
+        let markerImage;
+        let markerDetected = false;
+        let isModelPlaced = false;
+        
+        // Referencias a elementos UI
+        const splashscreen = document.getElementById('splashscreen');
+        const loadingProgress = document.getElementById('loading-progress');
+        const loadingText = document.getElementById('loading-text');
+        const startButton = document.getElementById('start-button');
+        const startButtonText = startButton.querySelector('span:last-child');
+        const startButtonIcon = document.getElementById('start-icon');
+        const arInterface = document.getElementById('ar-interface');
+        const positioningIndicator = document.getElementById('positioning-indicator');
+        const controlPanel = document.getElementById('control-panel');
+        const statusMessage = document.getElementById('status-message');
+        const infoCards = document.querySelectorAll('.info-card');
+        const helpButton = document.getElementById('help-button');
+        const infoButton = document.getElementById('info-button');
+        const resetButton = document.getElementById('reset-button');
+        const lightButton = document.getElementById('light-button');
+        const infoPanel = document.getElementById('info-panel');
+        const closeInfoPanelButton = document.getElementById('close-info-panel');
+        const tutorial = document.getElementById('tutorial');
+        
+        // Elementos de iluminación
+        let ambientLight, directionalLight, backLight, bottomLight;
+        let lightIntensity = 1.0;
+        
+        // Iniciar la experiencia
+        init();
+        
+        function init() {
+            // Simular carga de recursos
+            simulateLoading();
+            
+            container = document.createElement('div');
+            document.body.appendChild(container);
+            
+            scene = new THREE.Scene();
+            
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+            
+            // Configurar iluminación
+            setupLighting();
+            
+            // Crear el renderer
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true
+            });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            container.appendChild(renderer.domElement);
+            
+            // Crear reticle (indicador de posición)
+            reticle = new THREE.Mesh(
+                new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
+                new THREE.MeshBasicMaterial()
+            );
+            reticle.matrixAutoUpdate = false;
+            reticle.visible = false;
+            scene.add(reticle);
+            
+            // Cargar modelos y texturas
+            loadAssets();
+            
+            // Configurar eventos UI
+            setupUIEvents();
+            
+            // Verificar soporte de WebXR
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                    if (supported) {
+                        updateLoadingUI('AR soportado en este dispositivo', 90);
+                        enableStartButton('Iniciar experiencia AR');
+                    } else {
+                        showErrorMessage('AR no soportado en este dispositivo');
+                    }
+                });
+            } else {
+                showErrorMessage('WebXR no disponible en este navegador');
+            }
+            
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        function simulateLoading() {
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress >= 70) {
+                    clearInterval(interval);
+                    return;
+                }
+                updateLoadingUI('Cargando recursos...', progress);
+            }, 500);
+        }
+        
+        function updateLoadingUI(message, percent) {
+            loadingText.textContent = message;
+            loadingProgress.style.width = Math.min(percent, 100) + '%';
+        }
+        
+        function enableStartButton(text) {
+            startButton.disabled = false;
+            startButtonText.textContent = text;
+            startButtonIcon.textContent = '▶';
+            startButton.style.backgroundColor = '#4CAF50';
+        }
+        
+        function setupLighting() {
+            // Luz ambiental para iluminación general
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            // Luz direccional principal (simula el sol o fuente de luz principal)
+            directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(0.5, 1, 0.25);
+            scene.add(directionalLight);
+            
+            // Luces adicionales para destacar las esculturas desde diferentes ángulos
+            // basado en el plano de iluminación proporcionado
+            
+            // Luz desde atrás para contorno
+            backLight = new THREE.DirectionalLight(0xffeecc, 0.4);
+            backLight.position.set(0, 0.5, -1);
+            scene.add(backLight);
+            
+            // Luz desde abajo para efecto dramático
+            bottomLight = new THREE.DirectionalLight(0xccffff, 0.3);
+            bottomLight.position.set(0, -0.5, 0);
+            scene.add(bottomLight);
+        }
+        
+        function adjustLighting() {
+            lightIntensity = (lightIntensity === 1.0) ? 2.0 : (lightIntensity === 2.0) ? 0.5 : 1.0;
+            
+            ambientLight.intensity = lightIntensity * 0.5;
+            directionalLight.intensity = lightIntensity * 0.8;
+            backLight.intensity = lightIntensity * 0.4;
+            bottomLight.intensity = lightIntensity * 0.3;
+            
+            // Feedback visual
+            showStatusMessage(`Iluminación: ${lightIntensity === 0.5 ? 'Baja' : lightIntensity === 1.0 ? 'Media' : 'Alta'}`);
+        }
+        
+        function loadAssets() {
+            // Cargar el modelo 3D
+            const modelUrl = 'https://cdn.glitch.global/2b60304b-b88f-4fb9-b962-fddf642554cd/E1.glb?v=1746329999294';
+            const loader = new GLTFLoader();
+            
+            loader.load(
+                modelUrl,
+                (gltf) => {
+                    const model = gltf.scene;
+                    
+                    // Preparar el modelo para su uso
+                    model.scale.set(0.05, 0.05, 0.05);
+                    
+                    // Añadir el modelo a nuestra colección
+                    sculptureModels.push(model);
+                    
+                    updateLoadingUI('Modelo 3D cargado', 100);
+                    enableStartButton('Iniciar experiencia AR');
+                },
+                (progress) => {
+                    const percentComplete = Math.round((progress.loaded / progress.total) * 100);
+                    updateLoadingUI(`Cargando modelo 3D: ${percentComplete}%`, 70 + (percentComplete * 0.3));
+                },
+                (error) => {
+                    console.error('Error cargando modelo:', error);
+                    showErrorMessage('Error al cargar el modelo 3D');
+                }
+            );
+            
+            // Cargar la imagen marcador (usa la imagen de la cuadrícula)
+            const markerTexture = new THREE.TextureLoader().load(
+                // Usaríamos la URL de la imagen cuadriculada aquí
+                // Como no tenemos esa URL directa, esto es un placeholder
+                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
+                () => {
+                    updateLoadingUI('Recursos cargados. Listo para iniciar.', 100);
+                }
+            );
+        }
+        
+        function setupUIEvents() {
+            // Botón de inicio
+            startButton.addEventListener('click', () => {
+                showTutorial();
+            });
+            
+            // Eventos de tutorial
+            document.getElementById('skip-tutorial').addEventListener('click', () => {
+                hideTutorial();
+                startARSession();
+            });
+            
+            document.getElementById('next-slide-1').addEventListener('click', () => {
+                document.getElementById('slide-1').classList.remove('active');
+                document.getElementById('slide-2').classList.add('active');
+            });
+            
+            document.getElementById('prev-slide-2').addEventListener('click', () => {
+                document.getElementById('slide-2').classList.remove('active');
+                document.getElementById('slide-1').classList.add('active');
+            });
+            
+            document.getElementById('next-slide-2').addEventListener('click', () => {
+                document.getElementById('slide-2').classList.remove('active');
+                document.getElementById('slide-3').classList.add('active');
+            });
+            
+            document.getElementById('prev-slide-3').addEventListener('click', () => {
+                document.getElementById('slide-3').classList.remove('active');
+                document.getElementById('slide-2').classList.add('active');
+            });
+            
+            document.getElementById('start-experience').addEventListener('click', () => {
+                hideTutorial();
+                startARSession();
+            });
+            
+            // Botón de información
+            infoButton.addEventListener('click', () => {
+                infoPanel.classList.add('visible');
+            });
+            
+            // Botón de cerrar panel info
+            closeInfoPanelButton.addEventListener('click', () => {
+                infoPanel.classList.remove('visible');
+            });
+            
+            // Botón de ayuda
+            helpButton.addEventListener('click', () => {
+                showTutorial();
+            });
+            
+            // Botón de reinicio
+            resetButton.addEventListener('click', () => {
+                resetExperience();
+            });
+            
+            // Botón de iluminación
+            lightButton.addEventListener('click', () => {
+                adjustLighting();
+            });
+            
+            // Control Panel - mostrar al tocar la parte inferior
+            document.addEventListener('touchstart', (e) => {
+                if (e.touches[0].clientY > window.innerHeight - 100 && !isControlPanelVisible() && isARSessionActive()) {
+                    controlPanel.classList.add('visible');
+                }
+            });
+            
+            // Tarjetas de información - eventos de toque
+            sculptureCardEvents();
+        }
+        
+        function isControlPanelVisible() {
+            return controlPanel.classList.contains('visible');
+        }
+        
+        function isARSessionActive() {
+            return arInterface.style.display === 'block';
+        }
+        
+        function sculptureCardEvents() {
+            // Configurar eventos para mostrar/ocultar tarjetas al tocar las esculturas
+            // Esto se implementará usando raycasting en Three.js después de colocar los modelos
+        }
+        
+        function showTutorial() {
+            tutorial.classList.add('visible');
+            document.getElementById('slide-1').classList.add('active');
+            document.getElementById('slide-2').classList.remove('active');
+            document.getElementById('slide-3').classList.remove('active');
+        }
+        
+        function hideTutorial() {
+            tutorial.classList.remove('visible');
+        }
+        
+        function showStatusMessage(message, duration = 2000) {
+            statusMessage.textContent = message;
+            statusMessage.classList.add('fade-in');
+            statusMessage.classList.remove('fade-out');
+            
+            setTimeout(() => {
+                statusMessage.classList.remove('fade-in');
+                statusMessage.classList.add('fade-out');
+            }, duration);
+        }
+        
+        function startARSession() {
+            splashscreen.classList.add('fade-out');
+            setTimeout(() => {
+                splashscreen.style.display = 'none';
+                arInterface.style.display = 'block';
+            }, 500);
+            
+            const sessionInit = { 
+                requiredFeatures: ['hit-test'],
+                optionalFeatures: ['dom-overlay'],
+                domOverlay: { root: document.getElementById('ar-interface') }
+            };
+            
+            navigator.xr.requestSession('immersive-ar', sessionInit)
+                .then(onSessionStarted)
+                .catch(error => {
+                    console.error('Error al iniciar sesión AR:', error);
+                    showErrorMessage('No se pudo iniciar AR');
+                    
+                    // Mostrar de nuevo la pantalla de inicio
+                    arInterface.style.display = 'none';
+                    splashscreen.classList.remove('fade-out');
+                    splashscreen.style.display = 'block';
+                });
+        }
+        
+        function onSessionStarted(session) {
+            positioningIndicator.style.display = 'block';
+            controlPanel.classList.add('visible');
+            
+            session.addEventListener('end', onSessionEnded);
+            
+            renderer.xr.setReferenceSpaceType('local');
+            renderer.xr.setSession(session);
+            
+            // Configurar el controlador XR
+            controller = renderer.xr.getController(0);
+            controller.addEventListener('select', onSelect);
+            scene.add(controller);
+            
+            // Iniciar el bucle de renderizado
+            renderer.setAnimationLoop(render);
+            
+            // Mostrar mensaje de guía
+            showStatusMessage('Mueve tu dispositivo para detectar superficies');
+        }
+        
+        function onSessionEnded() {
+            // Volver a la pantalla de inicio
+            arInterface.style.display = 'none';
+            splashscreen.classList.remove('fade-out');
+            splashscreen.style.display = 'block';
+            enableStartButton('Reiniciar experiencia AR');
+            
+            // Limpiar escena
+            resetExperience();
+        }
+        
+        function resetExperience() {
+            // Eliminar modelos colocados
+            sculptureInstances.forEach(instance => {
+                scene.remove(instance);
+            });
+            sculptureInstances = [];
+            isModelPlaced = false;
+            
+            // Ocultar tarjetas de información
+            infoCards.forEach(card => {
+                card.style.display = 'none';
+            });
+            
+            // Reset estado
+            positioningIndicator.style.display = 'block';
+            positioningIndicator.textContent = 'Mueve tu dispositivo para detectar superficies';
+            
+            // Notificar al usuario
+            showStatusMessage('Experiencia reiniciada');
+        }
+        
+        function onSelect() {
+            if (reticle.visible && !isModelPlaced) {
+                placeModels();
+                
+                // Ocultar indicador de posicionamiento
+                positioningIndicator.style.display = 'none';
+                
+                // Mostrar mensaje de éxito
+                showStatusMessage('¡Esculturas colocadas! Explora moviéndote alrededor');
+                
+                // Después de un momento, mostrar la primera tarjeta de información
+                setTimeout(() => {
+                    document.getElementById('sculpture-1').style.display = 'block';
+                    document.getElementById('sculpture-1').classList.add('fade-in');
+                }, 3000);
+            }
+        }
+        
+        function placeModels() {
+            if (sculptureModels.length === 0) {
+                showStatusMessage('Modelos no cargados completamente');
+                return;
+            }
+            
+            // Colocar cuatro instancias del modelo según el plano proporcionado
+            // Las esculturas están dispuestas en círculo alrededor del marcador central
+            // con orientaciones específicas según el plano
+            const positions = [
+                { x: 0, z: -0.5, rotation: 0, label: "1" },     // Escultura superior (1)
+                { x: 0.5, z: 0, rotation: -Math.PI/2, label: "2" },  // Escultura derecha (2)
+                { x: 0, z: 0.5, rotation: Math.PI, label: "3" },    // Escultura inferior (3)
+                { x: -0.5, z: 0, rotation: Math.PI/2, label: "4" }   // Escultura izquierda (4)
+            ];
+            
+            const baseMatrix = new THREE.Matrix4();
+            baseMatrix.fromArray(reticle.matrix.elements);
+            
+            positions.forEach((pos, index) => {
+                const model = sculptureModels[0].clone();
+                
+                // Posicionar y rotar el modelo
+                const modelMatrix = baseMatrix.clone();
+                
+                // Trasladar respecto al centro en una disposición circular
+                const translationMatrix = new THREE.Matrix4().makeTranslation(pos.x, 0, pos.z);
+                modelMatrix.multiply(translationMatrix);
+                
+                // Aplicar rotación específica según el plano (las flechas indican la orientación)
+                const rotationMatrix = new THREE.Matrix4().makeRotationY(pos.rotation);
+                modelMatrix.multiply(rotationMatrix);
+                
+                model.matrix = modelMatrix;
+                model.matrixAutoUpdate = false;
+                
+                // Guardar referencia al modelo y su índice
+                model.userData = { index: index + 1 };
+                
+                scene.add(model);
+                sculptureInstances.push(model);
+                
+                // Configurar interactividad para mostrar tarjetas de información
+                setupModelInteraction(model, index + 1);
+            });
+            
+            isModelPlaced = true;
+        }
+        
+        function setupModelInteraction(model, index) {
+            // Implementar raycasting para detectar toques en las esculturas
+            // Este es un placeholder - la implementación completa requeriría agregar 
+            // lógica de raycasting en la función render()
+        }
+        
+        function showSculptureInfo(index) {
+            // Ocultar todas las tarjetas
+            infoCards.forEach(card => {
+                card.style.display = 'none';
+            });
+            
+            // Mostrar la tarjeta correspondiente
+            const card = document.getElementById(`sculpture-${index}`);
+            card.style.display = 'block';
+            card.classList.add('fade-in');
+            
+            // Ocultar automáticamente después de un tiempo
+            setTimeout(() => {
+                card.classList.remove('fade-in');
+                card.classList.add('fade-out');
+                setTimeout(() => {
+                    card.style.display = 'none';
+                    card.classList.remove('fade-out');
+                }, 500);
+            }, 5000);
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        function showErrorMessage(message) {
+            updateLoadingUI(message, 100);
+            loadingText.style.color = '#ff6b6b';
+            enableStartButton('Reintentar');
+        }
+        
+        function render(timestamp, frame) {
+            if (frame) {
+                const referenceSpace = renderer.xr.getReferenceSpace();
+                const session = renderer.xr.getSession();
+                
+                if (hitTestSourceRequested === false) {
+                    session.requestReferenceSpace('viewer').then(function(referenceSpace) {
+                        session.requestHitTestSource({ space: referenceSpace }).then(function(source) {
+                            hitTestSource = source;
+                        });
+                    });
+                    
+                    hitTestSourceRequested = true;
+                }
+                
+                if (hitTestSource) {
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+                    
+                    if (hitTestResults.length) {
+                        const hit = hitTestResults[0];
+                        reticle.visible = true;
+                        reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
+                        
+                        if (!isModelPlaced) {
+                            positioningIndicator.textContent = 'Toca para colocar las esculturas';
+                        }
+                    } else {
+                        reticle.visible = false;
+                        
+                        if (!isModelPlaced) {
+                            positioningIndicator.textContent = 'Mueve el dispositivo para detectar superficies';
+                        }
+                    }
+                }
+                
+                // Implementar raycasting para interactividad
+                if (isModelPlaced) {
+                    // Esta sería la implementación completa del raycasting
+                    // para detectar toques en las esculturas
+                    // Pseudocódigo:
+                    /*
+                    const raycaster = new THREE.Raycaster();
+                    const screenCenter = new THREE.Vector2();
+                    
+                    raycaster.setFromCamera(screenCenter, camera);
+                    const intersects = raycaster.intersectObjects(sculptureInstances, true);
+                    
+                    if (intersects.length > 0) {
+                        const object = intersects[0].object;
+                        // Encontrar el modelo raíz (parent)
+                        let modelRoot = object;
+                        while (modelRoot.parent && !modelRoot.userData.index) {
+                            modelRoot = modelRoot.parent;
+                        }
+                        
+                        if (modelRoot.userData && modelRoot.userData.index) {
+                            // Mostrar info de la escultura correspondiente si el usuario toca
+                            if (session.inputSources[0].gamepad && 
+                                session.inputSources[0].gamepad.buttons[0].pressed) {
+                                showSculptureInfo(modelRoot.userData.index);
+                            }
+                        }
+                    }
+                    */
+                }
+            }
+            
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Casa Bulbo - Experiencia AR</title>
     <style>
