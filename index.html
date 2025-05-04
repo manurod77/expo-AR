@@ -2,208 +2,189 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Casa Bulbo - Experiencia AR</title>
+    
+    <!-- Cargar Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.147.0/three.min.js"></script>
+    
     <style>
-        :root {
-            --primary-color: #ff6b00;
-            --secondary-color: #304ffe;
-            --dark-color: #232323;
-            --light-color: #f5f5f5;
-            --success-color: #4CAF50;
-            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-        
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
-            font-family: var(--font-main);
-            color: var(--dark-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #000;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
         
-        /* Pantalla inicial y de carga */
-        #splashscreen {
+        #loading-screen {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: var(--dark-color);
-            color: var(--light-color);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 1000;
-            transition: opacity 0.5s ease-in-out;
-            padding: 5vh 5vw;
-        }
-        
-        .splash-header {
-            text-align: center;
-            margin-top: 10vh;
-        }
-        
-        .splash-header h1 {
-            font-size: 8vw;
-            margin: 0;
-            color: var(--primary-color);
-        }
-        
-        .splash-header h2 {
-            font-size: 5vw;
-            font-weight: 300;
-            margin: 2vh 0;
-        }
-        
-        .splash-content {
-            text-align: center;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            max-width: 90%;
-        }
-        
-        .splash-content p {
-            margin: 2vh 0;
-            font-size: 4.5vw;
-            line-height: 1.4;
-        }
-        
-        .splash-footer {
-            width: 100%;
-            margin-bottom: 10vh;
-        }
-        
-        #start-button {
-            width: 100%;
-            padding: 3vh 0;
-            border: none;
-            border-radius: 12px;
-            background-color: var(--primary-color);
+            background-color: rgba(0, 0, 0, 0.9);
             color: white;
-            font-size: 5vw;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.2s;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            gap: 10px;
+            z-index: 999;
+            transition: opacity 0.5s ease-in-out;
         }
         
-        #start-button:active {
-            transform: scale(0.98);
+        .loading-title {
+            font-size: 8vw;
+            margin-bottom: 10px;
+            color: #ff6b00;
         }
         
-        #loading-indicator {
-            width: 100%;
-            height: 6px;
-            background-color: rgba(255,255,255,0.2);
-            border-radius: 3px;
+        .loading-subtitle {
+            font-size: 4vw;
+            margin-bottom: 30px;
+        }
+        
+        .progress-container {
+            width: 80%;
+            max-width: 300px;
+            height: 10px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
             overflow: hidden;
-            margin: 2vh 0;
+            margin-bottom: 20px;
         }
         
-        #loading-progress {
+        .progress-bar {
             height: 100%;
             width: 0%;
-            background-color: var(--primary-color);
-            transition: width 0.3s ease-out;
+            background-color: #ff6b00;
+            transition: width 0.3s ease-in-out;
         }
         
-        #loading-text {
-            text-align: center;
+        .loading-text {
             font-size: 3.5vw;
-            color: rgba(255,255,255,0.7);
-            margin-top: 1vh;
+            margin-bottom: 30px;
+            text-align: center;
+            max-width: 80%;
         }
         
-        /* Interfaz AR */
-        #ar-interface {
+        .start-button {
+            padding: 15px 30px;
+            background-color: #ff6b00;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 4vw;
+            cursor: pointer;
+            display: none;
+        }
+        
+        #camera-permission {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none;
-            z-index: 100;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
             display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 998;
+            padding: 20px;
+            text-align: center;
         }
         
-        /* Paneles informativos */
-        .info-card {
+        #camera-permission h2 {
+            font-size: 6vw;
+            margin-bottom: 20px;
+            color: #ff6b00;
+        }
+        
+        #camera-permission p {
+            font-size: 4vw;
+            margin-bottom: 30px;
+            max-width: 80%;
+        }
+        
+        #camera-permission button {
+            padding: 15px 30px;
+            background-color: #ff6b00;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 4vw;
+            cursor: pointer;
+        }
+        
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #video-background {
             position: absolute;
-            background-color: rgba(255,255,255,0.95);
-            border-radius: 12px;
-            padding: 15px;
-            width: 70vw;
-            max-width: 300px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            transform: translate(-50%, -50%);
-            opacity: 0;
-            transition: opacity 0.5s;
-            pointer-events: auto;
-            z-index: 50;
-            display: none;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
         }
         
-        .info-card h3 {
-            margin: 0 0 10px 0;
-            font-size: 4.5vw;
-            color: var(--primary-color);
-        }
-        
-        .info-card p {
-            margin: 0;
-            font-size: 3.5vw;
-            line-height: 1.4;
-        }
-        
-        /* Indicador de posicionamiento */
-        #positioning-indicator {
+        #ar-canvas {
             position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        #target-indicator {
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            text-align: center;
-            color: white;
-            background-color: rgba(0,0,0,0.7);
-            padding: 10px 20px;
-            border-radius: 30px;
-            font-size: 3.5vw;
-            z-index: 20;
+            width: 200px;
+            height: 200px;
+            border: 2px dashed white;
+            border-radius: 10px;
             pointer-events: none;
-            display: none;
+            z-index: 10;
+            opacity: 0.7;
         }
         
-        /* Controles de la experiencia */
-        #control-panel {
+        #ui-container {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        .info-panel {
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
-            background-color: rgba(255,255,255,0.95);
+            background-color: rgba(255, 255, 255, 0.9);
             border-top-left-radius: 20px;
             border-top-right-radius: 20px;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
             transform: translateY(100%);
             transition: transform 0.4s ease-out;
             pointer-events: auto;
-            z-index: 150;
+            z-index: 200;
+            box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.2);
         }
         
-        #control-panel.visible {
+        .info-panel.visible {
             transform: translateY(0);
         }
         
@@ -215,1460 +196,618 @@
             margin: 10px auto;
         }
         
-        .control-buttons {
-            display: flex;
-            justify-content: space-around;
-            padding: 5px 0 25px 0;
+        .info-content {
+            padding: 0 20px 20px 20px;
+            max-height: 60vh;
+            overflow-y: auto;
         }
         
-        .control-button {
+        .info-title {
+            font-size: 5vw;
+            margin: 10px 0;
+            color: #ff6b00;
+        }
+        
+        .info-text {
+            font-size: 3.5vw;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+        
+        .button-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            background: none;
-            border: none;
-            padding: 10px;
-            font-size: 3.5vw;
-            color: var(--dark-color);
-            cursor: pointer;
-        }
-        
-        .button-icon {
-            width: 40px;
-            height: 40px;
-            background-color: rgba(0,0,0,0.05);
-            border-radius: 50%;
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 20px;
-        }
-        
-        /* Panel de información completa */
-        #info-panel {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: white;
-            z-index: 200;
-            transform: translateY(100%);
-            transition: transform 0.5s ease-out;
-            overflow-y: auto;
+            gap: 15px;
             pointer-events: auto;
         }
         
-        #info-panel.visible {
-            transform: translateY(0);
-        }
-        
-        .panel-header {
-            position: sticky;
-            top: 0;
-            padding: 15px;
-            background-color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            z-index: 10;
-        }
-        
-        .panel-title {
-            font-size: 5vw;
-            margin: 0;
-            color: var(--primary-color);
-        }
-        
-        .close-button {
-            background: none;
-            border: none;
-            width: 40px;
-            height: 40px;
-            font-size: 24px;
-            cursor: pointer;
+        .ui-button {
+            width: 50px;
+            height: 50px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
             display: flex;
             justify-content: center;
             align-items: center;
-            color: var(--dark-color);
+            font-size: 24px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            border: none;
+            cursor: pointer;
         }
         
-        .panel-content {
-            padding: 20px;
+        .ui-button:active {
+            transform: scale(0.95);
         }
         
-        .panel-content h2 {
-            font-size: 5vw;
-            margin: 20px 0 10px 0;
-        }
-        
-        .panel-content p {
-            font-size: 4vw;
-            line-height: 1.5;
-            margin: 10px 0;
-        }
-        
-        .panel-content img {
+        .card-container {
+            position: fixed;
             width: 100%;
-            border-radius: 8px;
-            margin: 15px 0;
+            height: 100%;
+            pointer-events: none;
         }
         
-        /* Mensaje de estado */
-        #status-message {
+        .info-card {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 15px;
+            max-width: 250px;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: auto;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            display: none;
+        }
+        
+        .info-card.visible {
+            opacity: 1;
+        }
+        
+        .card-title {
+            font-size: 4vw;
+            margin: 0 0 10px 0;
+            color: #ff6b00;
+        }
+        
+        .card-text {
+            font-size: 3.5vw;
+            line-height: 1.4;
+            margin: 0;
+        }
+        
+        .status-message {
             position: fixed;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: rgba(35, 35, 35, 0.9);
+            background-color: rgba(0, 0, 0, 0.7);
             color: white;
             padding: 12px 20px;
-            border-radius: 30px;
+            border-radius: 20px;
             font-size: 3.5vw;
-            text-align: center;
-            z-index: 100;
-            pointer-events: none;
             opacity: 0;
-            transition: opacity 0.3s;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
         }
         
-        .fade-in {
-            animation: fadeIn 0.5s forwards;
+        .status-message.visible {
+            opacity: 1;
         }
         
-        .fade-out {
-            animation: fadeOut 0.5s forwards;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
-        
-        .hidden {
-            display: none !important;
-        }
-        
-        /* Tutorial de instrucciones */
-        #tutorial {
+        .instructions-container {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.8);
-            z-index: 300;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 80%;
             opacity: 0;
+            transition: opacity 0.5s ease-in-out;
             pointer-events: none;
-            transition: opacity 0.5s;
         }
         
-        #tutorial.visible {
+        .instructions-container.visible {
             opacity: 1;
             pointer-events: auto;
         }
         
-        .tutorial-slide {
-            background-color: white;
-            width: 90%;
-            max-width: 400px;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            display: none;
+        .instructions-text {
+            font-size: 4vw;
+            margin-bottom: 20px;
         }
         
-        .tutorial-slide.active {
-            display: block;
-        }
-        
-        .tutorial-image {
-            width: 100%;
-            height: 40vh;
-            background-color: #f0f0f0;
-            border-radius: 8px;
-            margin: 15px 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 18px;
-            color: #999;
-        }
-        
-        .tutorial-buttons {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-        
-        .tutorial-button {
-            padding: 10px 20px;
+        .instructions-button {
+            background-color: #ff6b00;
+            color: white;
             border: none;
             border-radius: 20px;
-            background-color: var(--primary-color);
-            color: white;
-            font-size: 16px;
+            padding: 10px 20px;
+            font-size: 3.5vw;
             cursor: pointer;
         }
         
-        .tutorial-button.secondary {
-            background-color: #ddd;
-            color: #333;
+        .place-button {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ff6b00;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 15px 30px;
+            font-size: 4.5vw;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            display: none;
+            pointer-events: auto;
+            z-index: 150;
         }
         
-        /* Responsive */
-        @media (min-width: 768px) {
-            .splash-header h1 { font-size: 36px; }
-            .splash-header h2 { font-size: 24px; }
-            .splash-content p { font-size: 18px; }
-            #start-button { font-size: 20px; max-width: 300px; margin: 0 auto; }
-            .info-card h3 { font-size: 18px; }
-            .info-card p { font-size: 14px; }
-            #positioning-indicator { font-size: 14px; }
-            .control-button { font-size: 14px; }
-            .panel-title { font-size: 22px; }
-            .panel-content h2 { font-size: 20px; }
-            .panel-content p { font-size: 16px; }
-            #status-message { font-size: 14px; }
+        .place-button:active {
+            transform: translateX(-50%) scale(0.98);
         }
     </style>
 </head>
 <body>
-    <!-- Pantalla de inicio -->
-    <div id="splashscreen">
-        <div class="splash-header">
-            <h1>Casa Bulbo</h1>
-            <h2>Experiencia AR</h2>
+    <!-- Pantalla de carga -->
+    <div id="loading-screen">
+        <h1 class="loading-title">Casa Bulbo</h1>
+        <h2 class="loading-subtitle">Experiencia AR</h2>
+        <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
         </div>
-        
-        <div class="splash-content">
-            <p>Explora esculturas digitales en realidad aumentada que interactúan con el espacio físico de Casa Bulbo.</p>
-            <div id="loading-indicator">
-                <div id="loading-progress"></div>
-            </div>
-            <div id="loading-text">Cargando recursos...</div>
-        </div>
-        
-        <div class="splash-footer">
-            <button id="start-button" disabled>
-                <span id="start-icon">⟳</span>
-                <span>Iniciando...</span>
-            </button>
-        </div>
+        <p class="loading-text" id="loading-text">Cargando recursos...</p>
+        <button class="start-button" id="start-button">Iniciar Experiencia</button>
     </div>
     
-    <!-- Interfaz AR -->
-    <div id="ar-interface">
-        <!-- Indicador de posicionamiento -->
-        <div id="positioning-indicator">Mueve tu dispositivo para detectar superficies</div>
-        
-        <!-- Tarjetas de información para cada escultura -->
-        <div class="info-card" id="sculpture-1" style="top: 30%; left: 50%;">
-            <h3>Escultura 1</h3>
-            <p>Representa la interacción entre formas pixeladas y orgánicas, explorando la tensión entre lo digital y natural.</p>
+    <!-- Pantalla de permisos de cámara -->
+    <div id="camera-permission">
+        <h2>Permiso de cámara</h2>
+        <p>Necesitamos acceso a tu cámara para crear la experiencia de realidad aumentada. No almacenamos ninguna imagen.</p>
+        <button id="permission-button">Permitir acceso</button>
+    </div>
+    
+    <!-- Contenedor de canvas y vídeo -->
+    <div id="canvas-container">
+        <video id="video-background" autoplay playsinline></video>
+        <canvas id="ar-canvas"></canvas>
+        <div id="target-indicator"></div>
+        <button class="place-button" id="place-button">Colocar esculturas</button>
+    </div>
+    
+    <!-- Interfaz de usuario -->
+    <div id="ui-container">
+        <div class="button-container">
+            <button class="ui-button" id="info-button">i</button>
+            <button class="ui-button" id="help-button">?</button>
         </div>
         
-        <div class="info-card" id="sculpture-2" style="top: 50%; left: 70%;">
-            <h3>Escultura 2</h3>
-            <p>Una interpretación tridimensional de patrones de datos transformados en forma física, conectando información y materia.</p>
+        <div class="card-container" id="card-container"></div>
+        
+        <div class="status-message" id="status-message"></div>
+        
+        <div class="instructions-container" id="instructions">
+            <p class="instructions-text">Apunta tu cámara hacia una superficie plana y presiona "Colocar esculturas" para ver las obras digitales.</p>
+            <button class="instructions-button" id="instructions-button">Entendido</button>
         </div>
         
-        <div class="info-card" id="sculpture-3" style="top: 70%; left: 50%;">
-            <h3>Escultura 3</h3>
-            <p>Esta pieza examina la fragmentación y reconstrucción de la identidad en la era digital mediante geometrías pixeladas.</p>
-        </div>
-        
-        <div class="info-card" id="sculpture-4" style="top: 50%; left: 30%;">
-            <h3>Escultura 4</h3>
-            <p>Un homenaje a la estética de los primeros videojuegos, traduciendo su lenguaje visual a un contexto espacial contemporáneo.</p>
-        </div>
-        
-        <!-- Panel de control -->
-        <div id="control-panel">
+        <div class="info-panel" id="info-panel">
             <div class="panel-handle"></div>
-            <div class="control-buttons">
-                <button class="control-button" id="help-button">
-                    <div class="button-icon">?</div>
-                    <span>Ayuda</span>
-                </button>
-                <button class="control-button" id="info-button">
-                    <div class="button-icon">i</div>
-                    <span>Info</span>
-                </button>
-                <button class="control-button" id="light-button">
-                    <div class="button-icon">💡</div>
-                    <span>Luz</span>
-                </button>
-                <button class="control-button" id="reset-button">
-                    <div class="button-icon">↻</div>
-                    <span>Reset</span>
-                </button>
-            </div>
-        </div>
-        
-        <!-- Mensaje de estado -->
-        <div id="status-message"></div>
-    </div>
-    
-    <!-- Panel de información completa -->
-    <div id="info-panel">
-        <div class="panel-header">
-            <h2 class="panel-title">Sobre la exposición</h2>
-            <button class="close-button" id="close-info-panel">×</button>
-        </div>
-        <div class="panel-content">
-            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" alt="Plano de Casa Bulbo">
-            
-            <h2>Concepto</h2>
-            <p>Esta instalación de realidad aumentada presenta esculturas digitales inspiradas en la estética del pixel art, explorando la relación entre lo digital y lo físico.</p>
-            
-            <h2>Disposición</h2>
-            <p>Las esculturas están dispuestas en un círculo alrededor del marcador central, cada una orientada hacia el exterior como se muestra en el plano de la exposición. Esta disposición invita al espectador a recorrer el espacio y experimentar las piezas desde diferentes ángulos.</p>
-            
-            <h2>Elementos visuales</h2>
-            <p>El marcador visual representa una cara pixelada rodeada por patrones geométricos coloridos, simbolizando la dualidad entre la expresión humana y la abstracción digital.</p>
-            
-            <h2>Iluminación</h2>
-            <p>La iluminación virtual ha sido diseñada específicamente para resaltar los volúmenes y texturas de las esculturas digitales, complementando la iluminación física del espacio en Casa Bulbo, Barranco.</p>
-            
-            <h2>Interacción</h2>
-            <p>Se invita a los visitantes a moverse alrededor de las piezas, observando cómo cambian según el ángulo y la distancia, creando una experiencia inmersiva que fusiona el entorno real con elementos digitales.</p>
-        </div>
-    </div>
-    
-    <!-- Tutorial -->
-    <div id="tutorial">
-        <div class="tutorial-slide active" id="slide-1">
-            <h2>Bienvenido/a</h2>
-            <p>Esta experiencia te permite ver esculturas digitales en realidad aumentada.</p>
-            <div class="tutorial-image">Ilustración: Dispositivo escaneando el entorno</div>
-            <p>Primero necesitarás permitir acceso a la cámara de tu dispositivo.</p>
-            <div class="tutorial-buttons">
-                <button class="tutorial-button secondary" id="skip-tutorial">Omitir</button>
-                <button class="tutorial-button" id="next-slide-1">Siguiente</button>
-            </div>
-        </div>
-        
-        <div class="tutorial-slide" id="slide-2">
-            <h2>Encuentra el marcador</h2>
-            <p>Busca la imagen cuadriculada en Casa Bulbo y apunta tu cámara hacia ella.</p>
-            <div class="tutorial-image">Ilustración: Apuntando al marcador</div>
-            <p>Cuando el marcador sea detectado, las esculturas aparecerán a su alrededor.</p>
-            <div class="tutorial-buttons">
-                <button class="tutorial-button secondary" id="prev-slide-2">Anterior</button>
-                <button class="tutorial-button" id="next-slide-2">Siguiente</button>
-            </div>
-        </div>
-        
-        <div class="tutorial-slide" id="slide-3">
-            <h2>Explora las esculturas</h2>
-            <p>Muévete alrededor del marcador para ver todas las esculturas desde diferentes ángulos.</p>
-            <div class="tutorial-image">Ilustración: Persona moviéndose alrededor</div>
-            <p>Toca una escultura para ver más información sobre ella.</p>
-            <div class="tutorial-buttons">
-                <button class="tutorial-button secondary" id="prev-slide-3">Anterior</button>
-                <button class="tutorial-button" id="start-experience">¡Comenzar!</button>
+            <div class="info-content">
+                <h2 class="info-title">Sobre la exposición</h2>
+                <p class="info-text">Esta instalación de realidad aumentada presenta esculturas digitales inspiradas en la estética del pixel art, explorando la relación entre lo digital y lo físico.</p>
+                
+                <h2 class="info-title">Disposición</h2>
+                <p class="info-text">Las esculturas están dispuestas en un círculo alrededor del marcador central, cada una orientada hacia el exterior. Esta disposición invita al espectador a recorrer el espacio y experimentar las piezas desde diferentes ángulos.</p>
+                
+                <h2 class="info-title">Elementos visuales</h2>
+                <p class="info-text">El marcador visual representa una cara pixelada rodeada por patrones geométricos coloridos, simbolizando la dualidad entre la expresión humana y la abstracción digital.</p>
+                
+                <h2 class="info-title">Iluminación</h2>
+                <p class="info-text">La iluminación virtual ha sido diseñada específicamente para resaltar los volúmenes y texturas de las esculturas digitales, complementando la iluminación física del espacio en Casa Bulbo, Barranco.</p>
+                
+                <h2 class="info-title">Interacción</h2>
+                <p class="info-text">Se invita a los visitantes a moverse alrededor de las piezas, observando cómo cambian según el ángulo y la distancia, creando una experiencia inmersiva que fusiona el entorno real con elementos digitales.</p>
             </div>
         </div>
     </div>
     
-    <script type="module">
-        import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
-        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
-        import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/ARButton.js';
+    <script>
+        // Información de las esculturas
+        const sculpturesInfo = [
+            {
+                id: "sculpture-1",
+                title: "Escultura 1",
+                text: "Representa la interacción entre formas pixeladas y orgánicas, explorando la tensión entre lo digital y natural."
+            },
+            {
+                id: "sculpture-2",
+                title: "Escultura 2",
+                text: "Una interpretación tridimensional de patrones de datos transformados en forma física, conectando información y materia."
+            },
+            {
+                id: "sculpture-3",
+                title: "Escultura 3",
+                text: "Esta pieza examina la fragmentación y reconstrucción de la identidad en la era digital mediante geometrías pixeladas."
+            },
+            {
+                id: "sculpture-4",
+                title: "Escultura 4",
+                text: "Un homenaje a la estética de los primeros videojuegos, traduciendo su lenguaje visual a un contexto espacial contemporáneo."
+            }
+        ];
         
-        // Variables globales
-        let container;
-        let camera, scene, renderer;
-        let controller;
-        let reticle;
-        let hitTestSource = null;
-        let hitTestSourceRequested = false;
-        let sculptureModels = [];
-        let sculptureInstances = [];
-        let markerImage;
-        let markerDetected = false;
-        let isModelPlaced = false;
-        
-        // Referencias a elementos UI
-        const splashscreen = document.getElementById('splashscreen');
-        const loadingProgress = document.getElementById('loading-progress');
+        // Referencias a elementos DOM
+        const loadingScreen = document.getElementById('loading-screen');
+        const progressBar = document.getElementById('progress-bar');
         const loadingText = document.getElementById('loading-text');
         const startButton = document.getElementById('start-button');
-        const startButtonText = startButton.querySelector('span:last-child');
-        const startButtonIcon = document.getElementById('start-icon');
-        const arInterface = document.getElementById('ar-interface');
-        const positioningIndicator = document.getElementById('positioning-indicator');
-        const controlPanel = document.getElementById('control-panel');
-        const statusMessage = document.getElementById('status-message');
-        const infoCards = document.querySelectorAll('.info-card');
-        const helpButton = document.getElementById('help-button');
-        const infoButton = document.getElementById('info-button');
-        const resetButton = document.getElementById('reset-button');
-        const lightButton = document.getElementById('light-button');
+        const cameraPermission = document.getElementById('camera-permission');
+        const permissionButton = document.getElementById('permission-button');
+        const videoBackground = document.getElementById('video-background');
+        const canvas = document.getElementById('ar-canvas');
+        const targetIndicator = document.getElementById('target-indicator');
+        const placeButton = document.getElementById('place-button');
         const infoPanel = document.getElementById('info-panel');
-        const closeInfoPanelButton = document.getElementById('close-info-panel');
-        const tutorial = document.getElementById('tutorial');
+        const infoButton = document.getElementById('info-button');
+        const helpButton = document.getElementById('help-button');
+        const instructionsContainer = document.getElementById('instructions');
+        const instructionsButton = document.getElementById('instructions-button');
+        const statusMessage = document.getElementById('status-message');
+        const cardContainer = document.getElementById('card-container');
         
-        // Elementos de iluminación
-        let ambientLight, directionalLight, backLight, bottomLight;
-        let lightIntensity = 1.0;
+        // Variables de estado
+        let modelsLoaded = false;
+        let sculpturesPlaced = false;
+        let currentInfoCard = null;
+        let cameraStream = null;
+        let renderer, scene, camera;
         
-        // Iniciar la experiencia
-        init();
-        
-        function init() {
-            // Simular carga de recursos
-            simulateLoading();
-            
-            container = document.createElement('div');
-            document.body.appendChild(container);
-            
-            scene = new THREE.Scene();
-            
-            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-            
-            // Configurar iluminación
-            setupLighting();
-            
-            // Crear el renderer
-            renderer = new THREE.WebGLRenderer({
-                antialias: true,
-                alpha: true
-            });
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.xr.enabled = true;
-            container.appendChild(renderer.domElement);
-            
-            // Crear reticle (indicador de posición)
-            reticle = new THREE.Mesh(
-                new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
-                new THREE.MeshBasicMaterial()
-            );
-            reticle.matrixAutoUpdate = false;
-            reticle.visible = false;
-            scene.add(reticle);
-            
-            // Cargar modelos y texturas
-            loadAssets();
-            
-            // Configurar eventos UI
-            setupUIEvents();
-            
-            // Verificar soporte de WebXR
-            if ('xr' in navigator) {
-                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-                    if (supported) {
-                        updateLoadingUI('AR soportado en este dispositivo', 90);
-                        enableStartButton('Iniciar experiencia AR');
-                    } else {
-                        showErrorMessage('AR no soportado en este dispositivo');
-                    }
-                });
-            } else {
-                showErrorMessage('WebXR no disponible en este navegador');
-            }
-            
-            window.addEventListener('resize', onWindowResize);
-        }
-        
+        // Simulación de carga
         function simulateLoading() {
             let progress = 0;
             const interval = setInterval(() => {
-                progress += Math.random() * 15;
-                if (progress >= 70) {
+                progress += Math.random() * 5;
+                if (progress >= 100) {
                     clearInterval(interval);
-                    return;
+                    progress = 100;
+                    modelsLoaded = true;
+                    loadingText.textContent = "¡Recursos cargados! Listo para comenzar.";
+                    startButton.style.display = "block";
                 }
-                updateLoadingUI('Cargando recursos...', progress);
-            }, 500);
+                progressBar.style.width = progress + "%";
+            }, 100);
         }
         
-        function updateLoadingUI(message, percent) {
-            loadingText.textContent = message;
-            loadingProgress.style.width = Math.min(percent, 100) + '%';
+        // Iniciar carga simulada
+        simulateLoading();
+        
+        // Crear tarjetas de información
+        function createInfoCards() {
+            sculpturesInfo.forEach(info => {
+                const card = document.createElement('div');
+                card.className = 'info-card';
+                card.id = info.id + '-info';
+                card.innerHTML = `
+                    <h3 class="card-title">${info.title}</h3>
+                    <p class="card-text">${info.text}</p>
+                `;
+                cardContainer.appendChild(card);
+            });
         }
         
-        function enableStartButton(text) {
-            startButton.disabled = false;
-            startButtonText.textContent = text;
-            startButtonIcon.textContent = '▶';
-            startButton.style.backgroundColor = '#4CAF50';
-        }
-        
-        function setupLighting() {
-            // Luz ambiental para iluminación general
-            ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-            scene.add(ambientLight);
-            
-            // Luz direccional principal (simula el sol o fuente de luz principal)
-            directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(0.5, 1, 0.25);
-            scene.add(directionalLight);
-            
-            // Luces adicionales para destacar las esculturas desde diferentes ángulos
-            // basado en el plano de iluminación proporcionado
-            
-            // Luz desde atrás para contorno
-            backLight = new THREE.DirectionalLight(0xffeecc, 0.4);
-            backLight.position.set(0, 0.5, -1);
-            scene.add(backLight);
-            
-            // Luz desde abajo para efecto dramático
-            bottomLight = new THREE.DirectionalLight(0xccffff, 0.3);
-            bottomLight.position.set(0, -0.5, 0);
-            scene.add(bottomLight);
-        }
-        
-        function adjustLighting() {
-            lightIntensity = (lightIntensity === 1.0) ? 2.0 : (lightIntensity === 2.0) ? 0.5 : 1.0;
-            
-            ambientLight.intensity = lightIntensity * 0.5;
-            directionalLight.intensity = lightIntensity * 0.8;
-            backLight.intensity = lightIntensity * 0.4;
-            bottomLight.intensity = lightIntensity * 0.3;
-            
-            // Feedback visual
-            showStatusMessage(`Iluminación: ${lightIntensity === 0.5 ? 'Baja' : lightIntensity === 1.0 ? 'Media' : 'Alta'}`);
-        }
-        
-        function loadAssets() {
-            // Cargar el modelo 3D
-            const modelUrl = 'https://cdn.glitch.global/2b60304b-b88f-4fb9-b962-fddf642554cd/E1.glb?v=1746329999294';
-            const loader = new GLTFLoader();
-            
-            loader.load(
-                modelUrl,
-                (gltf) => {
-                    const model = gltf.scene;
-                    
-                    // Preparar el modelo para su uso
-                    model.scale.set(0.05, 0.05, 0.05);
-                    
-                    // Añadir el modelo a nuestra colección
-                    sculptureModels.push(model);
-                    
-                    updateLoadingUI('Modelo 3D cargado', 100);
-                    enableStartButton('Iniciar experiencia AR');
-                },
-                (progress) => {
-                    const percentComplete = Math.round((progress.loaded / progress.total) * 100);
-                    updateLoadingUI(`Cargando modelo 3D: ${percentComplete}%`, 70 + (percentComplete * 0.3));
-                },
-                (error) => {
-                    console.error('Error cargando modelo:', error);
-                    showErrorMessage('Error al cargar el modelo 3D');
-                }
-            );
-            
-            // Cargar la imagen marcador (usa la imagen de la cuadrícula)
-            const markerTexture = new THREE.TextureLoader().load(
-                // Usaríamos la URL de la imagen cuadriculada aquí
-                // Como no tenemos esa URL directa, esto es un placeholder
-                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
-                () => {
-                    updateLoadingUI('Recursos cargados. Listo para iniciar.', 100);
-                }
-            );
-        }
-        
-        function setupUIEvents() {
-            // Botón de inicio
-            startButton.addEventListener('click', () => {
-                showTutorial();
-            });
-            
-            // Eventos de tutorial
-            document.getElementById('skip-tutorial').addEventListener('click', () => {
-                hideTutorial();
-                startARSession();
-            });
-            
-            document.getElementById('next-slide-1').addEventListener('click', () => {
-                document.getElementById('slide-1').classList.remove('active');
-                document.getElementById('slide-2').classList.add('active');
-            });
-            
-            document.getElementById('prev-slide-2').addEventListener('click', () => {
-                document.getElementById('slide-2').classList.remove('active');
-                document.getElementById('slide-1').classList.add('active');
-            });
-            
-            document.getElementById('next-slide-2').addEventListener('click', () => {
-                document.getElementById('slide-2').classList.remove('active');
-                document.getElementById('slide-3').classList.add('active');
-            });
-            
-            document.getElementById('prev-slide-3').addEventListener('click', () => {
-                document.getElementById('slide-3').classList.remove('active');
-                document.getElementById('slide-2').classList.add('active');
-            });
-            
-            document.getElementById('start-experience').addEventListener('click', () => {
-                hideTutorial();
-                startARSession();
-            });
-            
-            // Botón de información
-            infoButton.addEventListener('click', () => {
-                infoPanel.classList.add('visible');
-            });
-            
-            // Botón de cerrar panel info
-            closeInfoPanelButton.addEventListener('click', () => {
-                infoPanel.classList.remove('visible');
-            });
-            
-            // Botón de ayuda
-            helpButton.addEventListener('click', () => {
-                showTutorial();
-            });
-            
-            // Botón de reinicio
-            resetButton.addEventListener('click', () => {
-                resetExperience();
-            });
-            
-            // Botón de iluminación
-            lightButton.addEventListener('click', () => {
-                adjustLighting();
-            });
-            
-            // Control Panel - mostrar al tocar la parte inferior
-            document.addEventListener('touchstart', (e) => {
-                if (e.touches[0].clientY > window.innerHeight - 100 && !isControlPanelVisible() && isARSessionActive()) {
-                    controlPanel.classList.add('visible');
-                }
-            });
-            
-            // Tarjetas de información - eventos de toque
-            sculptureCardEvents();
-        }
-        
-        function isControlPanelVisible() {
-            return controlPanel.classList.contains('visible');
-        }
-        
-        function isARSessionActive() {
-            return arInterface.style.display === 'block';
-        }
-        
-        function sculptureCardEvents() {
-            // Configurar eventos para mostrar/ocultar tarjetas al tocar las esculturas
-            // Esto se implementará usando raycasting en Three.js después de colocar los modelos
-        }
-        
-        function showTutorial() {
-            tutorial.classList.add('visible');
-            document.getElementById('slide-1').classList.add('active');
-            document.getElementById('slide-2').classList.remove('active');
-            document.getElementById('slide-3').classList.remove('active');
-        }
-        
-        function hideTutorial() {
-            tutorial.classList.remove('visible');
-        }
-        
-        function showStatusMessage(message, duration = 2000) {
+        // Mostrar mensaje de estado
+        function showStatus(message, duration = 3000) {
             statusMessage.textContent = message;
-            statusMessage.classList.add('fade-in');
-            statusMessage.classList.remove('fade-out');
+            statusMessage.classList.add('visible');
             
             setTimeout(() => {
-                statusMessage.classList.remove('fade-in');
-                statusMessage.classList.add('fade-out');
+                statusMessage.classList.remove('visible');
             }, duration);
         }
         
-        function startARSession() {
-            splashscreen.classList.add('fade-out');
-            setTimeout(() => {
-                splashscreen.style.display = 'none';
-                arInterface.style.display = 'block';
-            }, 500);
+        // Mostrar tarjeta de información de escultura
+        function showSculptureInfo(sculptureId) {
+            // Ocultar tarjeta actual si existe
+            if (currentInfoCard) {
+                currentInfoCard.classList.remove('visible');
+                setTimeout(() => {
+                    currentInfoCard.style.display = 'none';
+                }, 300);
+            }
             
-            const sessionInit = { 
-                requiredFeatures: ['hit-test'],
-                optionalFeatures: ['dom-overlay'],
-                domOverlay: { root: document.getElementById('ar-interface') }
-            };
-            
-            navigator.xr.requestSession('immersive-ar', sessionInit)
-                .then(onSessionStarted)
-                .catch(error => {
-                    console.error('Error al iniciar sesión AR:', error);
-                    showErrorMessage('No se pudo iniciar AR');
-                    
-                    // Mostrar de nuevo la pantalla de inicio
-                    arInterface.style.display = 'none';
-                    splashscreen.classList.remove('fade-out');
-                    splashscreen.style.display = 'block';
+            // Mostrar nueva tarjeta
+            const card = document.getElementById(sculptureId + '-info');
+            if (card) {
+                // Posicionar tarjeta en el centro de la pantalla
+                card.style.top = '50%';
+                card.style.left = '50%';
+                card.style.transform = 'translate(-50%, -50%)';
+                
+                // Mostrar tarjeta
+                card.style.display = 'block';
+                setTimeout(() => {
+                    card.classList.add('visible');
+                }, 10);
+                
+                currentInfoCard = card;
+                
+                // Ocultar automáticamente después de un tiempo
+                setTimeout(() => {
+                    card.classList.remove('visible');
+                    setTimeout(() => {
+                        card.style.display = 'none';
+                    }, 300);
+                    currentInfoCard = null;
+                }, 5000);
+            }
+        }
+        
+        // Solicitar permisos de cámara
+        async function requestCameraPermission() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: window.innerWidth },
+                        height: { ideal: window.innerHeight }
+                    } 
                 });
-        }
-        
-        function onSessionStarted(session) {
-            positioningIndicator.style.display = 'block';
-            controlPanel.classList.add('visible');
-            
-            session.addEventListener('end', onSessionEnded);
-            
-            renderer.xr.setReferenceSpaceType('local');
-            renderer.xr.setSession(session);
-            
-            // Configurar el controlador XR
-            controller = renderer.xr.getController(0);
-            controller.addEventListener('select', onSelect);
-            scene.add(controller);
-            
-            // Iniciar el bucle de renderizado
-            renderer.setAnimationLoop(render);
-            
-            // Mostrar mensaje de guía
-            showStatusMessage('Mueve tu dispositivo para detectar superficies');
-        }
-        
-        function onSessionEnded() {
-            // Volver a la pantalla de inicio
-            arInterface.style.display = 'none';
-            splashscreen.classList.remove('fade-out');
-            splashscreen.style.display = 'block';
-            enableStartButton('Reiniciar experiencia AR');
-            
-            // Limpiar escena
-            resetExperience();
-        }
-        
-        function resetExperience() {
-            // Eliminar modelos colocados
-            sculptureInstances.forEach(instance => {
-                scene.remove(instance);
-            });
-            sculptureInstances = [];
-            isModelPlaced = false;
-            
-            // Ocultar tarjetas de información
-            infoCards.forEach(card => {
-                card.style.display = 'none';
-            });
-            
-            // Reset estado
-            positioningIndicator.style.display = 'block';
-            positioningIndicator.textContent = 'Mueve tu dispositivo para detectar superficies';
-            
-            // Notificar al usuario
-            showStatusMessage('Experiencia reiniciada');
-        }
-        
-        function onSelect() {
-            if (reticle.visible && !isModelPlaced) {
-                placeModels();
                 
-                // Ocultar indicador de posicionamiento
-                positioningIndicator.style.display = 'none';
+                videoBackground.srcObject = cameraStream;
                 
-                // Mostrar mensaje de éxito
-                showStatusMessage('¡Esculturas colocadas! Explora moviéndote alrededor');
+                // Esperar a que el video se cargue
+                await new Promise(resolve => {
+                    videoBackground.onloadedmetadata = () => {
+                        resolve();
+                    };
+                });
                 
-                // Después de un momento, mostrar la primera tarjeta de información
-                setTimeout(() => {
-                    document.getElementById('sculpture-1').style.display = 'block';
-                    document.getElementById('sculpture-1').classList.add('fade-in');
-                }, 3000);
+                // Mostrar el video
+                videoBackground.play();
+                
+                // Ocultar pantalla de permisos
+                cameraPermission.style.display = 'none';
+                
+                // Inicializar Three.js
+                initThreeJS();
+                
+                // Mostrar interfaz AR
+                targetIndicator.style.display = 'block';
+                placeButton.style.display = 'block';
+                
+                // Mostrar instrucciones
+                instructionsContainer.classList.add('visible');
+                
+                showStatus('Apunta a una superficie plana');
+                
+            } catch (error) {
+                console.error('Error accediendo a la cámara:', error);
+                
+                // Mostrar mensaje de error
+                loadingText.textContent = "Error: No se pudo acceder a la cámara. " + error.message;
+                loadingText.style.color = "#ff6b6b";
+                
+                // Ocultar pantalla de permisos
+                cameraPermission.style.display = 'none';
+                
+                // Mostrar pantalla de carga con error
+                loadingScreen.style.display = 'flex';
             }
         }
         
-        function placeModels() {
-            if (sculptureModels.length === 0) {
-                showStatusMessage('Modelos no cargados completamente');
-                return;
-            }
-            
-            // Colocar cuatro instancias del modelo según el plano proporcionado
-            // Las esculturas están dispuestas en círculo alrededor del marcador central
-            // con orientaciones específicas según el plano
-            const positions = [
-                { x: 0, z: -0.5, rotation: 0, label: "1" },     // Escultura superior (1)
-                { x: 0.5, z: 0, rotation: -Math.PI/2, label: "2" },  // Escultura derecha (2)
-                { x: 0, z: 0.5, rotation: Math.PI, label: "3" },    // Escultura inferior (3)
-                { x: -0.5, z: 0, rotation: Math.PI/2, label: "4" }   // Escultura izquierda (4)
-            ];
-            
-            const baseMatrix = new THREE.Matrix4();
-            baseMatrix.fromArray(reticle.matrix.elements);
-            
-            positions.forEach((pos, index) => {
-                const model = sculptureModels[0].clone();
-                
-                // Posicionar y rotar el modelo
-                const modelMatrix = baseMatrix.clone();
-                
-                // Trasladar respecto al centro en una disposición circular
-                const translationMatrix = new THREE.Matrix4().makeTranslation(pos.x, 0, pos.z);
-                modelMatrix.multiply(translationMatrix);
-                
-                // Aplicar rotación específica según el plano (las flechas indican la orientación)
-                const rotationMatrix = new THREE.Matrix4().makeRotationY(pos.rotation);
-                modelMatrix.multiply(rotationMatrix);
-                
-                model.matrix = modelMatrix;
-                model.matrixAutoUpdate = false;
-                
-                // Guardar referencia al modelo y su índice
-                model.userData = { index: index + 1 };
-                
-                scene.add(model);
-                sculptureInstances.push(model);
-                
-                // Configurar interactividad para mostrar tarjetas de información
-                setupModelInteraction(model, index + 1);
-            });
-            
-            isModelPlaced = true;
-        }
-        
-        function setupModelInteraction(model, index) {
-            // Implementar raycasting para detectar toques en las esculturas
-            // Este es un placeholder - la implementación completa requeriría agregar 
-            // lógica de raycasting en la función render()
-        }
-        
-        function showSculptureInfo(index) {
-            // Ocultar todas las tarjetas
-            infoCards.forEach(card => {
-                card.style.display = 'none';
-            });
-            
-            // Mostrar la tarjeta correspondiente
-            const card = document.getElementById(`sculpture-${index}`);
-            card.style.display = 'block';
-            card.classList.add('fade-in');
-            
-            // Ocultar automáticamente después de un tiempo
-            setTimeout(() => {
-                card.classList.remove('fade-in');
-                card.classList.add('fade-out');
-                setTimeout(() => {
-                    card.style.display = 'none';
-                    card.classList.remove('fade-out');
-                }, 500);
-            }, 5000);
-        }
-        
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-        
-        function showErrorMessage(message) {
-            updateLoadingUI(message, 100);
-            loadingText.style.color = '#ff6b6b';
-            enableStartButton('Reintentar');
-        }
-        
-        function render(timestamp, frame) {
-            if (frame) {
-                const referenceSpace = renderer.xr.getReferenceSpace();
-                const session = renderer.xr.getSession();
-                
-                if (hitTestSourceRequested === false) {
-                    session.requestReferenceSpace('viewer').then(function(referenceSpace) {
-                        session.requestHitTestSource({ space: referenceSpace }).then(function(source) {
-                            hitTestSource = source;
-                        });
-                    });
-                    
-                    hitTestSourceRequested = true;
-                }
-                
-                if (hitTestSource) {
-                    const hitTestResults = frame.getHitTestResults(hitTestSource);
-                    
-                    if (hitTestResults.length) {
-                        const hit = hitTestResults[0];
-                        reticle.visible = true;
-                        reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
-                        
-                        if (!isModelPlaced) {
-                            positioningIndicator.textContent = 'Toca para colocar las esculturas';
-                        }
-                    } else {
-                        reticle.visible = false;
-                        
-                        if (!isModelPlaced) {
-                            positioningIndicator.textContent = 'Mueve el dispositivo para detectar superficies';
-                        }
-                    }
-                }
-                
-                // Implementar raycasting para interactividad
-                if (isModelPlaced) {
-                    // Esta sería la implementación completa del raycasting
-                    // para detectar toques en las esculturas
-                    // Pseudocódigo:
-                    /*
-                    const raycaster = new THREE.Raycaster();
-                    const screenCenter = new THREE.Vector2();
-                    
-                    raycaster.setFromCamera(screenCenter, camera);
-                    const intersects = raycaster.intersectObjects(sculptureInstances, true);
-                    
-                    if (intersects.length > 0) {
-                        const object = intersects[0].object;
-                        // Encontrar el modelo raíz (parent)
-                        let modelRoot = object;
-                        while (modelRoot.parent && !modelRoot.userData.index) {
-                            modelRoot = modelRoot.parent;
-                        }
-                        
-                        if (modelRoot.userData && modelRoot.userData.index) {
-                            // Mostrar info de la escultura correspondiente si el usuario toca
-                            if (session.inputSources[0].gamepad && 
-                                session.inputSources[0].gamepad.buttons[0].pressed) {
-                                showSculptureInfo(modelRoot.userData.index);
-                            }
-                        }
-                    }
-                    */
-                }
-            }
-            
-            renderer.render(scene, camera);
-        }
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Casa Bulbo - Experiencia AR</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        #ui-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 10;
-        }
-        
-        #loading-screen {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            transition: opacity 0.5s;
-        }
-        
-        #start-button {
-            padding: 15px 30px;
-            border: none;
-            border-radius: 25px;
-            background-color: #4CAF50;
-            color: white;
-            font-size: 1.2em;
-            cursor: pointer;
-            pointer-events: auto;
-            margin-top: 20px;
-            transition: background-color 0.3s;
-        }
-        
-        #start-button:hover {
-            background-color: #45a049;
-        }
-        
-        #status-message {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            transition: opacity 0.5s;
-            pointer-events: none;
-        }
-        
-        .controls {
-            position: fixed;
-            bottom: 70px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            opacity: 0;
-            transition: opacity 0.5s;
-        }
-        
-        .control-button {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0.7);
-            border: none;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            pointer-events: auto;
-            cursor: pointer;
-            font-size: 1.5em;
-        }
-        
-        #info-panel {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            box-sizing: border-box;
-            transform: translateY(-100%);
-            transition: transform 0.5s;
-            pointer-events: auto;
-            max-height: 60%;
-            overflow-y: auto;
-        }
-        
-        #info-panel.visible {
-            transform: translateY(0);
-        }
-        
-        .close-button {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.5em;
-            cursor: pointer;
-        }
-        
-        .hidden {
-            opacity: 0;
-            pointer-events: none !important;
-        }
-    </style>
-</head>
-<body>
-    <div id="ui-container">
-        <div id="loading-screen">
-            <h1>Casa Bulbo</h1>
-            <p>Experiencia Artística en Realidad Aumentada</p>
-            <div id="loading-progress">Cargando recursos...</div>
-            <button id="start-button" class="hidden">Iniciar Experiencia AR</button>
-        </div>
-        
-        <div id="status-message" class="hidden">Buscando imagen marcador...</div>
-        
-        <div class="controls hidden" id="controls">
-            <button class="control-button" id="info-button">i</button>
-            <button class="control-button" id="reset-button">↻</button>
-            <button class="control-button" id="light-button">💡</button>
-        </div>
-        
-        <div id="info-panel">
-            <button class="close-button">×</button>
-            <h2>Sobre esta obra</h2>
-            <p>Esta instalación de realidad aumentada presenta esculturas digitales inspiradas en la estética del pixel art, explorando la relación entre lo digital y lo físico.</p>
-            <p>Las esculturas están dispuestas en un círculo alrededor del marcador central, cada una orientada hacia el exterior como se muestra en el plano de la exposición. Esta disposición invita al espectador a recorrer el espacio y experimentar las piezas desde diferentes ángulos.</p>
-            <p>El marcador visual representa una cara pixelada rodeada por patrones geométricos coloridos, simbolizando la dualidad entre la expresión humana y la abstracción digital.</p>
-            <p>La iluminación virtual ha sido diseñada específicamente para resaltar los volúmenes y texturas de las esculturas digitales, complementando la iluminación física del espacio en Casa Bulbo, Barranco.</p>
-        </div>
-    </div>
-    
-    <script type="module">
-        import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
-        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
-        import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/ARButton.js';
-        
-        // Variables globales
-        let container;
-        let camera, scene, renderer;
-        let controller;
-        let reticle;
-        let hitTestSource = null;
-        let hitTestSourceRequested = false;
-        let sculptureModels = [];
-        let sculptureInstances = [];
-        let markerImage;
-        let markerDetected = false;
-        let isModelPlaced = false;
-        
-        // Referencias a elementos UI
-        const loadingScreen = document.getElementById('loading-screen');
-        const loadingProgress = document.getElementById('loading-progress');
-        const startButton = document.getElementById('start-button');
-        const statusMessage = document.getElementById('status-message');
-        const controls = document.getElementById('controls');
-        const infoButton = document.getElementById('info-button');
-        const resetButton = document.getElementById('reset-button');
-        const lightButton = document.getElementById('light-button');
-        const infoPanel = document.getElementById('info-panel');
-        const closeInfoButton = document.querySelector('.close-button');
-        
-        // Elementos de iluminación
-        let ambientLight, directionalLight;
-        let lightIntensity = 1.0;
-        
-        // Iniciar la experiencia
-        init();
-        
-        function init() {
-            container = document.createElement('div');
-            document.body.appendChild(container);
-            
-            scene = new THREE.Scene();
-            
-            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-            
-            // Configurar iluminación
-            setupLighting();
-            
-            // Crear el renderer
+        // Inicializar Three.js
+        function initThreeJS() {
+            // Configurar renderer
             renderer = new THREE.WebGLRenderer({
-                antialias: true,
+                canvas: canvas,
                 alpha: true
             });
-            renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.xr.enabled = true;
-            container.appendChild(renderer.domElement);
+            renderer.setPixelRatio(window.devicePixelRatio);
             
-            // Crear reticle (indicador de posición)
-            reticle = new THREE.Mesh(
-                new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
-                new THREE.MeshBasicMaterial()
-            );
-            reticle.matrixAutoUpdate = false;
-            reticle.visible = false;
-            scene.add(reticle);
+            // Crear escena
+            scene = new THREE.Scene();
             
-            // Cargar modelos y texturas
-            loadAssets();
+            // Crear cámara
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
             
-            // Configurar eventos UI
-            setupUIEvents();
+            // Crear iluminación
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
             
-            // Verificar soporte de WebXR
-            if ('xr' in navigator) {
-                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-                    if (supported) {
-                        loadingProgress.textContent = 'AR soportado en este dispositivo';
-                        startButton.classList.remove('hidden');
-                    } else {
-                        showErrorMessage('AR no soportado en este dispositivo');
-                    }
-                });
-            } else {
-                showErrorMessage('WebXR no disponible en este navegador');
-            }
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(0, 1, 1);
+            scene.add(directionalLight);
             
+            // Iniciar bucle de renderizado
+            animate();
+            
+            // Evento de redimensionamiento
             window.addEventListener('resize', onWindowResize);
         }
         
-        function setupLighting() {
-            // Luz ambiental para iluminación general
-            ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-            scene.add(ambientLight);
-            
-            // Luz direccional principal (simula el sol o fuente de luz principal)
-            directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(0.5, 1, 0.25);
-            scene.add(directionalLight);
-            
-            // Luces adicionales para destacar las esculturas desde diferentes ángulos
-            // basado en el plano de iluminación proporcionado
-            
-            // Luz desde atrás para contorno
-            const backLight = new THREE.DirectionalLight(0xffeecc, 0.4);
-            backLight.position.set(0, 0.5, -1);
-            scene.add(backLight);
-            
-            // Luz desde abajo para efecto dramático
-            const bottomLight = new THREE.DirectionalLight(0xccffff, 0.3);
-            bottomLight.position.set(0, -0.5, 0);
-            scene.add(bottomLight);
-        }
-        
-        function adjustLighting() {
-            lightIntensity = (lightIntensity === 1.0) ? 2.0 : (lightIntensity === 2.0) ? 0.5 : 1.0;
-            
-            ambientLight.intensity = lightIntensity * 0.5;
-            directionalLight.intensity = lightIntensity * 0.8;
-            
-            // Feedback visual momentáneo
-            statusMessage.textContent = `Iluminación: ${lightIntensity === 0.5 ? 'Baja' : lightIntensity === 1.0 ? 'Media' : 'Alta'}`;
-            statusMessage.classList.remove('hidden');
-            setTimeout(() => {
-                statusMessage.classList.add('hidden');
-            }, 1500);
-        }
-        
-        function loadAssets() {
-            // Cargar el modelo 3D
-            const modelUrl = 'https://cdn.glitch.global/2b60304b-b88f-4fb9-b962-fddf642554cd/E1.glb?v=1746329999294';
-            const loader = new GLTFLoader();
-            
-            loader.load(
-                modelUrl,
-                (gltf) => {
-                    const model = gltf.scene;
-                    
-                    // Preparar el modelo para su uso
-                    model.scale.set(0.05, 0.05, 0.05);
-                    
-                    // Añadir el modelo a nuestra colección
-                    sculptureModels.push(model);
-                    
-                    loadingProgress.textContent = 'Modelo 3D cargado';
-                },
-                (progress) => {
-                    const percentComplete = Math.round((progress.loaded / progress.total) * 100);
-                    loadingProgress.textContent = `Cargando modelo 3D: ${percentComplete}%`;
-                },
-                (error) => {
-                    console.error('Error cargando modelo:', error);
-                    loadingProgress.textContent = 'Error al cargar el modelo 3D';
-                }
-            );
-            
-            // Cargar la imagen marcador (usa la imagen de la cuadrícula)
-            const markerTexture = new THREE.TextureLoader().load(
-                // Usaríamos la URL de la imagen cuadriculada aquí
-                // Como no tenemos esa URL directa, esto es un placeholder
-                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
-                () => {
-                    loadingProgress.textContent = 'Recursos cargados. Listo para iniciar.';
-                }
-            );
-        }
-        
-        function setupUIEvents() {
-            // Botón de inicio
-            startButton.addEventListener('click', () => {
-                startARSession();
-            });
-            
-            // Botón de información
-            infoButton.addEventListener('click', () => {
-                infoPanel.classList.add('visible');
-            });
-            
-            // Botón de cerrar panel info
-            closeInfoButton.addEventListener('click', () => {
-                infoPanel.classList.remove('visible');
-            });
-            
-            // Botón de reinicio
-            resetButton.addEventListener('click', () => {
-                resetExperience();
-            });
-            
-            // Botón de iluminación
-            lightButton.addEventListener('click', () => {
-                adjustLighting();
-            });
-        }
-        
-        function startARSession() {
-            const sessionInit = { 
-                requiredFeatures: ['hit-test'],
-                optionalFeatures: ['dom-overlay'],
-                domOverlay: { root: document.getElementById('ui-container') }
-            };
-            
-            navigator.xr.requestSession('immersive-ar', sessionInit)
-                .then(onSessionStarted)
-                .catch(error => {
-                    console.error('Error al iniciar sesión AR:', error);
-                    showErrorMessage('No se pudo iniciar AR');
-                });
-        }
-        
-        function onSessionStarted(session) {
-            loadingScreen.classList.add('hidden');
-            statusMessage.classList.remove('hidden');
-            controls.classList.remove('hidden');
-            
-            session.addEventListener('end', onSessionEnded);
-            
-            renderer.xr.setReferenceSpaceType('local');
-            renderer.xr.setSession(session);
-            
-            // Configurar el controlador XR
-            controller = renderer.xr.getController(0);
-            controller.addEventListener('select', onSelect);
-            scene.add(controller);
-            
-            // Iniciar el bucle de renderizado
-            renderer.setAnimationLoop(render);
-        }
-        
-        function onSessionEnded() {
-            loadingScreen.classList.remove('hidden');
-            statusMessage.classList.add('hidden');
-            controls.classList.add('hidden');
-            
-            // Limpiar escena
-            resetExperience();
-        }
-        
-        function resetExperience() {
-            // Eliminar modelos colocados
-            sculptureInstances.forEach(instance => {
-                scene.remove(instance);
-            });
-            sculptureInstances = [];
-            isModelPlaced = false;
-            
-            // Reset estado
-            statusMessage.textContent = 'Buscando imagen marcador...';
-            statusMessage.classList.remove('hidden');
-            
-            // Feedback visual momentáneo
-            setTimeout(() => {
-                if (!isModelPlaced) {
-                    statusMessage.classList.add('hidden');
-                }
-            }, 2000);
-        }
-        
-        function onSelect() {
-            if (reticle.visible && !isModelPlaced) {
-                placeModels();
-            }
-        }
-        
+        // Colocar esculturas 3D
         function placeModels() {
-            if (sculptureModels.length === 0) {
-                statusMessage.textContent = 'Modelos no cargados completamente';
-                return;
-            }
+            // Ocultar indicador y botón
+            targetIndicator.style.display = 'none';
+            placeButton.style.display = 'none';
             
-            // Colocar cuatro instancias del modelo según el plano proporcionado
-            // Las esculturas están dispuestas en círculo alrededor del marcador central
-            // con orientaciones específicas según el plano
+            // Crear geometrías básicas para representar las esculturas
             const positions = [
-                { x: 0, z: -0.5, rotation: 0, label: "1" },     // Escultura superior (1)
-                { x: 0.5, z: 0, rotation: -Math.PI/2, label: "2" },  // Escultura derecha (2)
-                { x: 0, z: 0.5, rotation: Math.PI, label: "3" },    // Escultura inferior (3)
-                { x: -0.5, z: 0, rotation: Math.PI/2, label: "4" }   // Escultura izquierda (4)
+                { position: new THREE.Vector3(0, 0, -2), label: "1" },     // Norte
+                { position: new THREE.Vector3(2, 0, 0), label: "2" },      // Este
+                { position: new THREE.Vector3(0, 0, 2), label: "3" },      // Sur
+                { position: new THREE.Vector3(-2, 0, 0), label: "4" }      // Oeste
             ];
             
-            const baseMatrix = new THREE.Matrix4();
-            baseMatrix.fromArray(reticle.matrix.elements);
-            
-            positions.forEach((pos, index) => {
-                const model = sculptureModels[0].clone();
+            // Crear esculturas simples con geometrías básicas
+            positions.forEach((posData, index) => {
+                // Crear grupo para la escultura
+                const sculptureGroup = new THREE.Group();
+                sculptureGroup.userData = { id: "sculpture-" + posData.label };
                 
-                // Posicionar y rotar el modelo
-                const modelMatrix = baseMatrix.clone();
+                // Crear formas básicas para simular la escultura
+                // Base
+                const baseGeometry = new THREE.BoxGeometry(0.6, 0.1, 0.6);
+                const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+                const base = new THREE.Mesh(baseGeometry, baseMaterial);
+                base.position.y = -0.4;
+                sculptureGroup.add(base);
                 
-                // Trasladar respecto al centro en una disposición circular
-                const translationMatrix = new THREE.Matrix4().makeTranslation(pos.x, 0, pos.z);
-                modelMatrix.multiply(translationMatrix);
+                // Forma principal
+                const mainGeometry = new THREE.BoxGeometry(0.4, 0.8, 0.4);
+                const mainMaterial = new THREE.MeshStandardMaterial({ 
+                    color: [0xff5555, 0x55ff55, 0x5555ff, 0xffff55][index],
+                    roughness: 0.7,
+                    metalness: 0.3
+                });
+                const mainShape = new THREE.Mesh(mainGeometry, mainMaterial);
+                sculptureGroup.add(mainShape);
                 
-                // Aplicar rotación específica según el plano (las flechas indican la orientación)
-                const rotationMatrix = new THREE.Matrix4().makeRotationY(pos.rotation);
-                modelMatrix.multiply(rotationMatrix);
+                // Detalles adicionales
+                const detailGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+                const detailMaterial = new THREE.MeshStandardMaterial({ 
+                    color: 0xffffff,
+                    roughness: 0.5,
+                    metalness: 0.8
+                });
                 
-                model.matrix = modelMatrix;
-                model.matrixAutoUpdate = false;
+                // Añadir algunos detalles
+                for (let i = 0; i < 3; i++) {
+                    const detail = new THREE.Mesh(detailGeometry, detailMaterial);
+                    detail.position.set(
+                        (Math.random() - 0.5) * 0.3,
+                        (Math.random() - 0.5) * 0.5,
+                        (Math.random() - 0.5) * 0.3
+                    );
+                    sculptureGroup.add(detail);
+                }
                 
-                // Opcionalmente, se podría añadir un número o etiqueta a cada escultura
-                // para identificarlas según el plano
+                // Colocar el grupo en la posición
+                sculptureGroup.position.copy(posData.position);
                 
-                scene.add(model);
-                sculptureInstances.push(model);
+                // Orientar hacia el centro
+                sculptureGroup.lookAt(new THREE.Vector3(0, 0, 0));
+                
+                // Añadir a la escena
+                scene.add(sculptureGroup);
+                
+                // Añadir interactividad
+                sculptureGroup.userData.clickable = true;
+                sculptureGroup.userData.infoId = "sculpture-" + posData.label;
             });
             
-            isModelPlaced = true;
-            statusMessage.textContent = 'Esculturas colocadas';
+            // Marcar como colocadas
+            sculpturesPlaced = true;
             
-            // Ocultar el mensaje después de un momento
-            setTimeout(() => {
-                statusMessage.classList.add('hidden');
-            }, 2000);
+            // Mostrar mensaje
+            showStatus('¡Esculturas colocadas! Toca para más información.', 5000);
         }
         
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-        
-        function showErrorMessage(message) {
-            loadingProgress.textContent = message;
-            loadingProgress.style.color = '#ff6b6b';
-            startButton.classList.add('hidden');
-        }
-        
-        function render(timestamp, frame) {
-            if (frame) {
-                const referenceSpace = renderer.xr.getReferenceSpace();
-                const session = renderer.xr.getSession();
-                
-                if (hitTestSourceRequested === false) {
-                    session.requestReferenceSpace('viewer').then(function(referenceSpace) {
-                        session.requestHitTestSource({ space: referenceSpace }).then(function(source) {
-                            hitTestSource = source;
-                        });
-                    });
-                    
-                    hitTestSourceRequested = true;
+        // Manejar clic/toque en la pantalla
+        function handleTouch(event) {
+            if (!sculpturesPlaced) return;
+            
+            // Obtener posición del toque
+            const touch = event.touches ? event.touches[0] : event;
+            const mouseX = (touch.clientX / window.innerWidth) * 2 - 1;
+            const mouseY = -(touch.clientY / window.innerHeight) * 2 + 1;
+            
+            // Crear raycast
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2(mouseX, mouseY);
+            
+            // Actualizar raycaster
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Detectar intersecciones
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            
+            // Verificar si se tocó una escultura
+            if (intersects.length > 0) {
+                // Encontrar el grupo raíz (la escultura)
+                let sculptureGroup = intersects[0].object;
+                while(sculptureGroup.parent && sculptureGroup.parent !== scene) {
+                    sculptureGroup = sculptureGroup.parent;
                 }
                 
-                if (hitTestSource) {
-                    const hitTestResults = frame.getHitTestResults(hitTestSource);
-                    
-                    if (hitTestResults.length) {
-                        const hit = hitTestResults[0];
-                        reticle.visible = true;
-                        reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
-                        
-                        if (!isModelPlaced) {
-                            statusMessage.textContent = 'Toca para colocar las esculturas';
-                        }
-                    } else {
-                        reticle.visible = false;
-                        
-                        if (!isModelPlaced) {
-                            statusMessage.textContent = 'Mueve el dispositivo para detectar superficies';
-                        }
-                    }
+                // Verificar si es clickable
+                if (sculptureGroup.userData && sculptureGroup.userData.clickable) {
+                    // Mostrar información
+                    showSculptureInfo(sculptureGroup.userData.infoId);
                 }
             }
+        }
+        
+        // Actualizar tamaño del renderer cuando cambia el tamaño de la ventana
+        function onWindowResize() {
+            if (camera && renderer) {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        }
+        
+        // Animación
+        function animate() {
+            requestAnimationFrame(animate);
             
+            // Animar esculturas si están colocadas
+            if (sculpturesPlaced) {
+                // Obtener todos los grupos de esculturas
+                scene.children.forEach(child => {
+                    if (child.userData && child.userData.clickable) {
+                        // Rotación suave
+                        child.rotation.y += 0.01;
+                    }
+                });
+            }
+            
+            // Renderizar escena
             renderer.render(scene, camera);
         }
+        
+        // Event Listeners
+        startButton.addEventListener('click', () => {
+            loadingScreen.style.display = 'none';
+            cameraPermission.style.display = 'flex';
+        });
+        
+        permissionButton.addEventListener('click', () => {
+            requestCameraPermission();
+        });
+        
+        placeButton.addEventListener('click', () => {
+            placeModels();
+        });
+        
+        instructionsButton.addEventListener('click', () => {
+            instructionsContainer.classList.remove('visible');
+        });
+        
+        infoButton.addEventListener('click', () => {
+            infoPanel.classList.toggle('visible');
+        });
+        
+        helpButton.addEventListener('click', () => {
+            instructionsContainer.classList.add('visible');
+        });
+        
+        // Crear tarjetas de información
+        createInfoCards();
+        
+        // Detectar toques en el canvas
+        canvas.addEventListener('click', handleTouch);
+        canvas.addEventListener('touchstart', handleTouch);
     </script>
 </body>
 </html>
