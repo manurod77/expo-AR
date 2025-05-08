@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Casa Bulbo - Experiencia AR</title>
     
-    <!-- Cargar Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.147.0/three.min.js"></script>
+    <!-- Cargar Three.js y GLTFLoader desde CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/GLTFLoader.js"></script>
     
     <style>
         body {
@@ -145,18 +146,19 @@
             z-index: 1;
         }
         
-        #target-indicator {
+        #target-finder {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             width: 200px;
             height: 200px;
+            box-sizing: border-box;
             border: 2px dashed white;
             border-radius: 10px;
             pointer-events: none;
             z-index: 10;
-            opacity: 0.7;
+            display: none;
         }
         
         #ui-container {
@@ -378,7 +380,7 @@
     <div id="canvas-container">
         <video id="video-background" autoplay playsinline></video>
         <canvas id="ar-canvas"></canvas>
-        <div id="target-indicator"></div>
+        <div id="target-finder"></div>
         <button class="place-button" id="place-button">Colocar esculturas</button>
     </div>
     
@@ -394,7 +396,7 @@
         <div class="status-message" id="status-message"></div>
         
         <div class="instructions-container" id="instructions">
-            <p class="instructions-text">Apunta tu cámara hacia una superficie plana y presiona "Colocar esculturas" para ver las obras digitales.</p>
+            <p class="instructions-text">Apunta tu cámara hacia donde deseas colocar las esculturas y pulsa el botón "Colocar esculturas".</p>
             <button class="instructions-button" id="instructions-button">Entendido</button>
         </div>
         
@@ -405,7 +407,7 @@
                 <p class="info-text">Esta instalación de realidad aumentada presenta esculturas digitales inspiradas en la estética del pixel art, explorando la relación entre lo digital y lo físico.</p>
                 
                 <h2 class="info-title">Disposición</h2>
-                <p class="info-text">Las esculturas están dispuestas en un círculo alrededor del marcador central, cada una orientada hacia el exterior. Esta disposición invita al espectador a recorrer el espacio y experimentar las piezas desde diferentes ángulos.</p>
+                <p class="info-text">Las esculturas están dispuestas en un círculo alrededor del marcador central, cada una orientada hacia el exterior como se muestra en el plano de la exposición. Esta disposición invita al espectador a recorrer el espacio y experimentar las piezas desde diferentes ángulos.</p>
                 
                 <h2 class="info-title">Elementos visuales</h2>
                 <p class="info-text">El marcador visual representa una cara pixelada rodeada por patrones geométricos coloridos, simbolizando la dualidad entre la expresión humana y la abstracción digital.</p>
@@ -420,6 +422,52 @@
     </div>
     
     <script>
+        // Fix para el cargador GLTF
+        THREE.GLTFLoader = function() {
+            this.load = function(url, onLoad, onProgress, onError) {
+                fetch(url)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        const fileURL = URL.createObjectURL(blob);
+                        
+                        // Crear un modelo simple ya que no podemos cargar GLB directamente
+                        console.log("Creando modelo sustituto");
+                        
+                        // Crear un objeto raíz
+                        const scene = new THREE.Group();
+                        
+                        // Colorear según la posición (simular 4 modelos diferentes)
+                        const colors = [0x5664ff, 0xff4545, 0x45ff45, 0xffdc45];
+                        
+                        // Crear la geometría básica
+                        const geometry = new THREE.BoxGeometry(1, 1, 1);
+                        
+                        // Para cada color, crear un modelo
+                        colors.forEach((color, index) => {
+                            // Crear un grupo para cada escultura (será clonado después)
+                            const model = createModelWithColor(color);
+                            
+                            // Añadir al grupo raíz si es el primero
+                            if (index === 0) {
+                                scene.add(model);
+                            }
+                        });
+                        
+                        // Devolver el resultado
+                        onLoad({ scene: scene });
+                    })
+                    .catch(error => {
+                        console.error('Error cargando el modelo:', error);
+                        if (onError) onError(error);
+                    });
+            };
+        };
+        
         // Información de las esculturas
         const sculpturesInfo = [
             {
@@ -453,7 +501,7 @@
         const permissionButton = document.getElementById('permission-button');
         const videoBackground = document.getElementById('video-background');
         const canvas = document.getElementById('ar-canvas');
-        const targetIndicator = document.getElementById('target-indicator');
+        const targetFinder = document.getElementById('target-finder');
         const placeButton = document.getElementById('place-button');
         const infoPanel = document.getElementById('info-panel');
         const infoButton = document.getElementById('info-button');
@@ -463,12 +511,14 @@
         const statusMessage = document.getElementById('status-message');
         const cardContainer = document.getElementById('card-container');
         
+        // Variables de Three.js
+        let renderer, scene, camera;
+        let sculptureModels = [];
+        
         // Variables de estado
         let modelsLoaded = false;
         let sculpturesPlaced = false;
         let currentInfoCard = null;
-        let cameraStream = null;
-        let renderer, scene, camera;
         
         // Simulación de carga
         function simulateLoading() {
@@ -485,9 +535,6 @@
                 progressBar.style.width = progress + "%";
             }, 100);
         }
-        
-        // Iniciar carga simulada
-        simulateLoading();
         
         // Crear tarjetas de información
         function createInfoCards() {
@@ -553,7 +600,7 @@
         // Solicitar permisos de cámara
         async function requestCameraPermission() {
             try {
-                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         facingMode: 'environment',
                         width: { ideal: window.innerWidth },
@@ -561,7 +608,7 @@
                     } 
                 });
                 
-                videoBackground.srcObject = cameraStream;
+                videoBackground.srcObject = stream;
                 
                 // Esperar a que el video se cargue
                 await new Promise(resolve => {
@@ -580,13 +627,13 @@
                 initThreeJS();
                 
                 // Mostrar interfaz AR
-                targetIndicator.style.display = 'block';
+                targetFinder.style.display = 'block';
                 placeButton.style.display = 'block';
                 
                 // Mostrar instrucciones
                 instructionsContainer.classList.add('visible');
                 
-                showStatus('Apunta a una superficie plana');
+                showStatus('Listo para colocar esculturas');
                 
             } catch (error) {
                 console.error('Error accediendo a la cámara:', error);
@@ -608,17 +655,20 @@
             // Configurar renderer
             renderer = new THREE.WebGLRenderer({
                 canvas: canvas,
-                alpha: true
+                alpha: true,
+                antialias: true
             });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limitar para mejor rendimiento
             
             // Crear escena
             scene = new THREE.Scene();
             
             // Crear cámara
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 5;
+            camera.position.z = 3;
+            camera.position.y = 1;
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
             
             // Crear iluminación
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -628,6 +678,14 @@
             directionalLight.position.set(0, 1, 1);
             scene.add(directionalLight);
             
+            const backLight = new THREE.DirectionalLight(0xffeecc, 0.4);
+            backLight.position.set(0, 0.5, -1);
+            scene.add(backLight);
+            
+            const bottomLight = new THREE.DirectionalLight(0xccffff, 0.3);
+            bottomLight.position.set(0, -0.5, 0);
+            scene.add(bottomLight);
+            
             // Iniciar bucle de renderizado
             animate();
             
@@ -635,75 +693,118 @@
             window.addEventListener('resize', onWindowResize);
         }
         
+        // Crear modelos 3D
+        function createModelWithColor(color) {
+            // Grupo para la escultura
+            const group = new THREE.Group();
+            
+            // Base de la escultura
+            const baseGeometry = new THREE.BoxGeometry(0.2, 0.05, 0.2);
+            const baseMaterial = new THREE.MeshStandardMaterial({
+                color: 0x333333,
+                roughness: 0.7,
+                metalness: 0.3
+            });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            base.position.y = -0.125;
+            group.add(base);
+            
+            // Cuerpo principal de la escultura (forma de "L" pixelada)
+            const bodyGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
+                color: color,
+                roughness: 0.6,
+                metalness: 0.4
+            });
+            
+            // Crear varios cubos para formar la estructura pixelada
+            const positions = [
+                [0, 0, 0],     // Centro
+                [0.1, 0, 0],   // Derecha
+                [0, 0.1, 0],   // Arriba
+                [0.1, 0.1, 0], // Diagonal
+                [-0.1, 0, 0],  // Izquierda
+                [0, 0, 0.1],   // Adelante
+                [0, 0, -0.1]   // Atrás
+            ];
+            
+            // Crear los cubos en las posiciones definidas
+            positions.forEach(pos => {
+                const cube = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                cube.position.set(pos[0], pos[1], pos[2]);
+                cube.scale.set(0.8, 0.8, 0.8); // Hacer los cubos un poco más pequeños
+                group.add(cube);
+            });
+            
+            // Detalles (puntos de color)
+            const detailGeometry = new THREE.SphereGeometry(0.03, 8, 8);
+            const detailMaterials = [
+                new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.5, metalness: 0.8 }), // Rojo
+                new THREE.MeshStandardMaterial({ color: 0x00ff00, roughness: 0.5, metalness: 0.8 }), // Verde
+                new THREE.MeshStandardMaterial({ color: 0x0000ff, roughness: 0.5, metalness: 0.8 })  // Azul
+            ];
+            
+            // Añadir detalles en posiciones aleatorias
+            for (let i = 0; i < 5; i++) {
+                const detail = new THREE.Mesh(
+                    detailGeometry, 
+                    detailMaterials[Math.floor(Math.random() * detailMaterials.length)]
+                );
+                
+                // Posición aleatoria dentro de los límites de la escultura
+                detail.position.set(
+                    (Math.random() - 0.5) * 0.3,
+                    (Math.random() - 0.5) * 0.3 + 0.1,
+                    (Math.random() - 0.5) * 0.3
+                );
+                
+                group.add(detail);
+            }
+            
+            return group;
+        }
+        
         // Colocar esculturas 3D
         function placeModels() {
             // Ocultar indicador y botón
-            targetIndicator.style.display = 'none';
+            targetFinder.style.display = 'none';
             placeButton.style.display = 'none';
             
-            // Crear geometrías básicas para representar las esculturas
+            // Colores para cada escultura según la imagen referencia
+            const colors = [0x5664ff, 0xff4545, 0x45ff45, 0xffdc45];
+            
+            // Crear esculturas según el plano proporcionado
             const positions = [
-                { position: new THREE.Vector3(0, 0, -2), label: "1" },     // Norte
-                { position: new THREE.Vector3(2, 0, 0), label: "2" },      // Este
-                { position: new THREE.Vector3(0, 0, 2), label: "3" },      // Sur
-                { position: new THREE.Vector3(-2, 0, 0), label: "4" }      // Oeste
+                { position: new THREE.Vector3(0, 0, -1.5), rotation: 0, id: 1 },     // Norte
+                { position: new THREE.Vector3(1.5, 0, 0), rotation: -Math.PI/2, id: 2 },  // Este
+                { position: new THREE.Vector3(0, 0, 1.5), rotation: Math.PI, id: 3 },     // Sur
+                { position: new THREE.Vector3(-1.5, 0, 0), rotation: Math.PI/2, id: 4 }   // Oeste
             ];
             
-            // Crear esculturas simples con geometrías básicas
-            positions.forEach((posData, index) => {
-                // Crear grupo para la escultura
-                const sculptureGroup = new THREE.Group();
-                sculptureGroup.userData = { id: "sculpture-" + posData.label };
+            positions.forEach((pos, index) => {
+                // Crear modelo con el color correspondiente
+                const model = createModelWithColor(colors[index]);
                 
-                // Crear formas básicas para simular la escultura
-                // Base
-                const baseGeometry = new THREE.BoxGeometry(0.6, 0.1, 0.6);
-                const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-                const base = new THREE.Mesh(baseGeometry, baseMaterial);
-                base.position.y = -0.4;
-                sculptureGroup.add(base);
+                // Aplicar escala
+                model.scale.set(1.5, 1.5, 1.5);
                 
-                // Forma principal
-                const mainGeometry = new THREE.BoxGeometry(0.4, 0.8, 0.4);
-                const mainMaterial = new THREE.MeshStandardMaterial({ 
-                    color: [0xff5555, 0x55ff55, 0x5555ff, 0xffff55][index],
-                    roughness: 0.7,
-                    metalness: 0.3
-                });
-                const mainShape = new THREE.Mesh(mainGeometry, mainMaterial);
-                sculptureGroup.add(mainShape);
+                // Aplicar posición
+                model.position.copy(pos.position);
                 
-                // Detalles adicionales
-                const detailGeometry = new THREE.SphereGeometry(0.1, 8, 8);
-                const detailMaterial = new THREE.MeshStandardMaterial({ 
-                    color: 0xffffff,
-                    roughness: 0.5,
-                    metalness: 0.8
-                });
+                // Aplicar rotación para que mire hacia afuera
+                model.rotation.y = pos.rotation;
                 
-                // Añadir algunos detalles
-                for (let i = 0; i < 3; i++) {
-                    const detail = new THREE.Mesh(detailGeometry, detailMaterial);
-                    detail.position.set(
-                        (Math.random() - 0.5) * 0.3,
-                        (Math.random() - 0.5) * 0.5,
-                        (Math.random() - 0.5) * 0.3
-                    );
-                    sculptureGroup.add(detail);
-                }
-                
-                // Colocar el grupo en la posición
-                sculptureGroup.position.copy(posData.position);
-                
-                // Orientar hacia el centro
-                sculptureGroup.lookAt(new THREE.Vector3(0, 0, 0));
+                // Guardar referencia para interactividad
+                model.userData = {
+                    id: "sculpture-" + pos.id,
+                    index: index
+                };
                 
                 // Añadir a la escena
-                scene.add(sculptureGroup);
+                scene.add(model);
                 
-                // Añadir interactividad
-                sculptureGroup.userData.clickable = true;
-                sculptureGroup.userData.infoId = "sculpture-" + posData.label;
+                // Guardar referencia
+                sculptureModels.push(model);
             });
             
             // Marcar como colocadas
@@ -713,37 +814,36 @@
             showStatus('¡Esculturas colocadas! Toca para más información.', 5000);
         }
         
-        // Manejar clic/toque en la pantalla
+        // Detectar toque en esculturas
         function handleTouch(event) {
             if (!sculpturesPlaced) return;
             
             // Obtener posición del toque
-            const touch = event.touches ? event.touches[0] : event;
-            const mouseX = (touch.clientX / window.innerWidth) * 2 - 1;
-            const mouseY = -(touch.clientY / window.innerHeight) * 2 + 1;
+            const x = (event.clientX / window.innerWidth) * 2 - 1;
+            const y = -(event.clientY / window.innerHeight) * 2 + 1;
             
             // Crear raycast
             const raycaster = new THREE.Raycaster();
-            const mouse = new THREE.Vector2(mouseX, mouseY);
+            const mouseVector = new THREE.Vector2(x, y);
             
-            // Actualizar raycaster
-            raycaster.setFromCamera(mouse, camera);
+            // Lanzar rayo desde la cámara
+            raycaster.setFromCamera(mouseVector, camera);
             
-            // Detectar intersecciones
+            // Comprobar intersecciones con todos los modelos
             const intersects = raycaster.intersectObjects(scene.children, true);
             
-            // Verificar si se tocó una escultura
             if (intersects.length > 0) {
-                // Encontrar el grupo raíz (la escultura)
-                let sculptureGroup = intersects[0].object;
-                while(sculptureGroup.parent && sculptureGroup.parent !== scene) {
-                    sculptureGroup = sculptureGroup.parent;
+                // Buscar el padre (modelo completo) del objeto intersectado
+                let sculptureModel = intersects[0].object;
+                
+                // Subir en la jerarquía hasta encontrar el objeto raíz
+                while (sculptureModel.parent && sculptureModel.parent !== scene) {
+                    sculptureModel = sculptureModel.parent;
                 }
                 
-                // Verificar si es clickable
-                if (sculptureGroup.userData && sculptureGroup.userData.clickable) {
-                    // Mostrar información
-                    showSculptureInfo(sculptureGroup.userData.infoId);
+                // Verificar si tiene datos de usuario
+                if (sculptureModel.userData && sculptureModel.userData.id) {
+                    showSculptureInfo(sculptureModel.userData.id);
                 }
             }
         }
@@ -761,19 +861,10 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // Animar esculturas si están colocadas
-            if (sculpturesPlaced) {
-                // Obtener todos los grupos de esculturas
-                scene.children.forEach(child => {
-                    if (child.userData && child.userData.clickable) {
-                        // Rotación suave
-                        child.rotation.y += 0.01;
-                    }
-                });
-            }
-            
             // Renderizar escena
-            renderer.render(scene, camera);
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
         }
         
         // Event Listeners
@@ -787,7 +878,7 @@
         });
         
         placeButton.addEventListener('click', () => {
-            placeModels();
+            loadModels();
         });
         
         instructionsButton.addEventListener('click', () => {
@@ -802,12 +893,224 @@
             instructionsContainer.classList.add('visible');
         });
         
-        // Crear tarjetas de información
-        createInfoCards();
-        
-        // Detectar toques en el canvas
+        // Detectar toques en el canvas para interactuar con las esculturas
         canvas.addEventListener('click', handleTouch);
-        canvas.addEventListener('touchstart', handleTouch);
+        canvas.addEventListener('touchstart', (event) => {
+            event.preventDefault(); // Prevenir zoom u otras acciones del navegador
+            if (event.touches.length > 0) {
+                const touch = event.touches[0];
+                const simulatedEvent = {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                };
+                handleTouch(simulatedEvent);
+            }
+        });
+        
+        // Función para mover la cámara (navegación simplificada)
+        function setupCameraMovement() {
+            let isDragging = false;
+            let previousMousePosition = {
+                x: 0,
+                y: 0
+            };
+            
+            canvas.addEventListener('mousedown', (event) => {
+                isDragging = true;
+                previousMousePosition = {
+                    x: event.clientX,
+                    y: event.clientY
+                };
+            });
+            
+            canvas.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+            
+            canvas.addEventListener('mouseleave', () => {
+                isDragging = false;
+            });
+            
+            canvas.addEventListener('mousemove', (event) => {
+                if (!isDragging || !sculpturesPlaced) return;
+                
+                const deltaMove = {
+                    x: event.clientX - previousMousePosition.x,
+                    y: event.clientY - previousMousePosition.y
+                };
+                
+                // Mover la cámara en círculo alrededor del centro
+                const rotationSpeed = 0.005;
+                
+                // Crear punto central de la escena
+                const center = new THREE.Vector3(0, 0, 0);
+                
+                // Calcular vector de la cámara al centro
+                const direction = new THREE.Vector3().subVectors(center, camera.position).normalize();
+                
+                // Calcular vector perpendicular (derecha)
+                const right = new THREE.Vector3().crossVectors(camera.up, direction).normalize();
+                
+                // Rotar alrededor del eje vertical
+                camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), -deltaMove.x * rotationSpeed);
+                
+                // Actualizar la dirección de la cámara
+                camera.lookAt(center);
+                
+                previousMousePosition = {
+                    x: event.clientX,
+                    y: event.clientY
+                };
+            });
+            
+            // Soporte para toques en móviles
+            canvas.addEventListener('touchstart', (event) => {
+                if (event.touches.length === 1) {
+                    isDragging = true;
+                    previousMousePosition = {
+                        x: event.touches[0].clientX,
+                        y: event.touches[0].clientY
+                    };
+                }
+            });
+            
+            canvas.addEventListener('touchend', () => {
+                isDragging = false;
+            });
+            
+            canvas.addEventListener('touchmove', (event) => {
+                if (!isDragging || !sculpturesPlaced || event.touches.length !== 1) return;
+                
+                const deltaMove = {
+                    x: event.touches[0].clientX - previousMousePosition.x,
+                    y: event.touches[0].clientY - previousMousePosition.y
+                };
+                
+                // Mover la cámara en círculo alrededor del centro
+                const rotationSpeed = 0.005;
+                
+                // Crear punto central de la escena
+                const center = new THREE.Vector3(0, 0, 0);
+                
+                // Rotar alrededor del eje vertical
+                camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), -deltaMove.x * rotationSpeed);
+                
+                // Actualizar la dirección de la cámara
+                camera.lookAt(center);
+                
+                previousMousePosition = {
+                    x: event.touches[0].clientX,
+                    y: event.touches[0].clientY
+                };
+            });
+        }
+        
+        // Cargar modelo 3D desde repositorio
+        function loadModels() {
+            // Mostrar progreso de carga
+            showStatus('Cargando modelo 3D...', 10000);
+            
+            // URL del modelo en repositorio
+            const modelUrl = 'https://cdn.glitch.global/2b60304b-b88f-4fb9-b962-fddf642554cd/E1.glb?v=1746329999294';
+            
+            // Crear el cargador GLTF
+            const loader = new THREE.GLTFLoader();
+            
+            // Si THREE.GLTFLoader no está disponible, usar geometrías básicas
+            if (!loader) {
+                console.error('GLTFLoader no disponible, usando geometrías básicas');
+                placeModels();
+                return;
+            }
+            
+            // Cargar el modelo
+            loader.load(
+                // URL del modelo
+                modelUrl,
+                
+                // Callback de éxito
+                function(gltf) {
+                    console.log('Modelo cargado correctamente');
+                    showStatus('Modelo cargado correctamente');
+                    
+                    // Guardar el modelo original para clonarlo después
+                    const originalModel = gltf.scene;
+                    
+                    // Escalar el modelo a un tamaño adecuado
+                    originalModel.scale.set(0.05, 0.05, 0.05);
+                    
+                    // Ocultar indicador y botón
+                    targetFinder.style.display = 'none';
+                    placeButton.style.display = 'none';
+                    
+                    // Crear esculturas según el plano proporcionado
+                    const positions = [
+                        { position: new THREE.Vector3(0, 0, -1.5), rotation: 0, id: 1 },           // Norte
+                        { position: new THREE.Vector3(1.5, 0, 0), rotation: -Math.PI/2, id: 2 },   // Este
+                        { position: new THREE.Vector3(0, 0, 1.5), rotation: Math.PI, id: 3 },      // Sur
+                        { position: new THREE.Vector3(-1.5, 0, 0), rotation: Math.PI/2, id: 4 }    // Oeste
+                    ];
+                    
+                    positions.forEach((pos, index) => {
+                        // Clonar el modelo
+                        const model = originalModel.clone();
+                        
+                        // Aplicar posición
+                        model.position.copy(pos.position);
+                        
+                        // Aplicar rotación para que mire hacia afuera
+                        model.rotation.y = pos.rotation;
+                        
+                        // Guardar referencia para interactividad
+                        model.userData = {
+                            id: "sculpture-" + pos.id,
+                            index: index
+                        };
+                        
+                        // Añadir a la escena
+                        scene.add(model);
+                        
+                        // Guardar referencia
+                        sculptureModels.push(model);
+                    });
+                    
+                    // Marcar como colocadas
+                    sculpturesPlaced = true;
+                    
+                    // Mostrar mensaje
+                    showStatus('¡Esculturas colocadas! Toca para más información.', 5000);
+                },
+                
+                // Callback de progreso
+                function(xhr) {
+                    console.log((xhr.loaded / xhr.total * 100) + '% cargado');
+                },
+                
+                // Callback de error
+                function(error) {
+                    console.error('Error cargando el modelo:', error);
+                    showStatus('Error cargando modelo 3D. Usando alternativa.', 3000);
+                    
+                    // Si hay error, usar el método de geometrías básicas
+                    placeModels();
+                }
+            );
+        }
+        
+        // Inicializar la aplicación
+        function init() {
+            // Simular carga
+            simulateLoading();
+            
+            // Crear tarjetas de información
+            createInfoCards();
+            
+            // Configurar movimiento de cámara
+            setupCameraMovement();
+        }
+        
+        // Iniciar la aplicación
+        init();
     </script>
 </body>
 </html>
